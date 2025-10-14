@@ -1,8 +1,12 @@
-# BirdNET-Go
+# BirdNET-Gone
+
+**Unified Repository: BirdNET-Go + Display Interface**
 
 <p align="center">
   <img src="doc/BirdNET-Go-logo.webp" />
 </p>
+
+> This repository combines [BirdNET-Go](https://github.com/tphakala/birdnet-go) (AI-powered bird detection) with [BirdNET Display](https://github.com/C4KEW4LK/birdnet_display) (Raspberry Pi display interface) into a single, unified codebase for easier maintenance and deployment.
 <p align="center">
   <!-- Project Status -->
   <a href="https://github.com/tphakala/birdnet-go/releases">
@@ -59,14 +63,50 @@ BirdNET-Go is an AI solution for continuous avian monitoring and identification
 - Runs on Windows, Linux and macOS
 - Low resource usage, works on Raspberry Pi 3 and equivalent 64-bit single board computers
 
+## Repository Structure
+
+```
+birdnet-gone/
+├── cmd/                    # BirdNET-Go CLI commands
+├── internal/               # BirdNET-Go Go packages
+├── frontend/               # BirdNET-Go Svelte UI
+├── display/                # Raspberry Pi Display Interface (Python/Flask)
+│   ├── birdnet_display.py
+│   ├── cache_builder.py
+│   ├── static/
+│   └── README.md
+├── docker-compose.yml      # Unified deployment
+└── README.md
+```
+
 ## Installation
 
-Quick install script for Debian, Ubuntu and Raspberry Pi OS based systems:
+### Quick Install (BirdNET-Go Core)
+
+For Debian, Ubuntu, and Raspberry Pi OS based systems:
 
 ```bash
-curl -fsSL https://github.com/tphakala/birdnet-go/raw/main/install.sh -o install.sh
+curl -fsSL https://github.com/festion/birdnet-gone/raw/main/install.sh -o install.sh
 bash ./install.sh
 ```
+
+### Docker Compose (Recommended - Both Services)
+
+Run both BirdNET-Go and the display interface together:
+
+```bash
+git clone https://github.com/festion/birdnet-gone.git
+cd birdnet-gone
+docker-compose up -d
+```
+
+This starts:
+- BirdNET-Go on port 8080
+- Display interface on port 5000
+
+### Display Interface Only
+
+For Raspberry Pi display setup, see [display/README.md](display/README.md)
 
 ## Web Dashboard
 
@@ -101,7 +141,17 @@ Join our [Discord server](https://discord.gg/gcSCFGUtsd) for support, discussion
 
 ## License
 
+This repository contains two components with different licenses:
+
+### BirdNET-Go Core (main codebase)
 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+See [LICENSE](LICENSE) for details.
+
+### Display Interface (`display/` directory)
+MIT License
+See [display/LICENSE](display/LICENSE) for details.
+
+**Summary**: The display component can be used commercially and modified freely (MIT), while the core BirdNET-Go application is non-commercial use only (CC-BY-NC-SA 4.0).
 
 ## Authors
 

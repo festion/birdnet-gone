@@ -1,0 +1,58 @@
+name: Display CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'display/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/display.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'display/**'
+      - 'docker-compose.yml'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd display
+          pip install -r requirements.txt
+          pip install pylint flake8
+
+      - name: Lint with flake8
+        run: |
+          cd display
+          flake8 birdnet_display.py cache_builder.py --max-line-length=120 --ignore=E501,W503
+
+      - name: Test import
+        run: |
+          cd display
+          python -c "import birdnet_display; import cache_builder"
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build display image
+        run: |
+          cd display
+          docker build -t birdnet-display:test .
+
+      - name: Test docker-compose
+        run: |
+          docker-compose config

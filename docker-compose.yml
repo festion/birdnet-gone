@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # BirdNET-Go Core Service
+  birdnet-go:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: birdnet-go
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+      - ./config:/config
+    environment:
+      - TZ=UTC
+    networks:
+      - birdnet
+
+  # BirdNET Display Service (Optional)
+  birdnet-display:
+    build:
+      context: ./display
+      dockerfile: Dockerfile
+    container_name: birdnet-display
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      - birdnet-go
+    environment:
+      - BIRDNET_GO_URL=http://birdnet-go:8080
+      - TZ=UTC
+    volumes:
+      - ./display/static/bird_images_cache:/app/static/bird_images_cache
+      - ./display/species_list.csv:/app/species_list.csv
+    networks:
+      - birdnet
+
+networks:
+  birdnet:
+    driver: bridge
