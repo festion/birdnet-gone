@@ -1,0 +1,37 @@
+# MediaMTX Configuration for ESP32 Audio Streaming to BirdNET-Go
+#
+# This configuration sets up MediaMTX to bridge an ESP32 HTTP audio stream
+# to RTSP format that BirdNET-Go can consume.
+#
+# Installation:
+#   sudo cp mediamtx.yml /etc/mediamtx.yml
+#   sudo systemctl restart mediamtx.service
+
+logLevel: info
+logDestinations: [stdout]
+logFile: /tmp/mediamtx.log
+
+# RTSP server configuration
+rtspAddress: :8554
+protocols: [tcp]
+
+# Path for ESP32 audio stream
+paths:
+  birdnet_audio:
+    # FFmpeg command to convert ESP32 HTTP stream to RTSP
+    #
+    # Input: Raw PCM s16le, 16kHz, mono from ESP32
+    # Output: RTSP PCM s16be, 48kHz, stereo for BirdNET-Go
+    #
+    # IMPORTANT: Replace "ESP32_IP" with your ESP32's actual IP address
+    runOnInit: ffmpeg -nostdin -hide_banner -f s16le -ar 16000 -ac 1 -i http://ESP32_IP:8080/stream -f rtsp -rtsp_transport tcp -ar 48000 -ac 2 -acodec pcm_s16be rtsp://localhost:8554/birdnet_audio
+
+    # Automatically restart FFmpeg if it crashes
+    runOnInitRestart: yes
+
+# Alternative configuration for lower CPU usage (16kHz mono output):
+#
+# paths:
+#   birdnet_audio:
+#     runOnInit: ffmpeg -nostdin -hide_banner -f s16le -ar 16000 -ac 1 -i http://ESP32_IP:8080/stream -f rtsp -rtsp_transport tcp -ar 16000 -ac 1 -acodec pcm_s16be rtsp://localhost:8554/birdnet_audio
+#     runOnInitRestart: yes

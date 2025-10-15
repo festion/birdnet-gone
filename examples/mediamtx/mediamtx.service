@@ -1,0 +1,23 @@
+# MediaMTX Systemd Service for BirdNET-Go
+#
+# Installation:
+#   sudo cp mediamtx.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable mediamtx.service
+#   sudo systemctl start mediamtx.service
+
+[Unit]
+Description=MediaMTX RTSP Server for BirdNET Audio
+Documentation=https://github.com/bluenviron/mediamtx
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+ExecStart=/usr/local/bin/mediamtx /etc/mediamtx.yml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
