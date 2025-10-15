@@ -1,0 +1,29 @@
+# BirdNET-Go Systemd Service with MediaMTX Dependency
+#
+# This service file ensures MediaMTX starts before BirdNET-Go
+#
+# Installation:
+#   sudo cp birdnet-go-rtsp.service /etc/systemd/system/birdnet-go.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable birdnet-go.service
+#   sudo systemctl start birdnet-go.service
+
+[Unit]
+Description=BirdNET-Go
+After=docker.service mediamtx.service
+Requires=docker.service mediamtx.service
+
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker rm -f birdnet-go
+ExecStart=/usr/bin/docker run --rm --name birdnet-go \
+  --network host \
+  --env TZ="America/New_York" \
+  --device /dev/snd \
+  -v /root/birdnet-go-app/config:/config \
+  -v /root/birdnet-go-app/data:/data \
+  ghcr.io/tphakala/birdnet-go:nightly
+ExecStopPost=-/usr/bin/docker rm -f birdnet-go
+
+[Install]
+WantedBy=multi-user.target
