@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>Live Bird Detections</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
+
+        /* Base styles for components */
+        .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
+        .left-column { display: flex; flex-direction: column; }
+        .right-column { display: flex; flex-direction: column; gap: 15px; }
+        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; transition: opacity 0.5s ease-in-out; }
+        .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; transition: background-image 0.5s ease-in-out; }
+        .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; transition: opacity 0.5s ease-in-out; }
+        .card-content-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
+        .main-card { flex-grow: 1; }
+        .side-card { flex: 1; }
+        h1 { font-size: 2.2em; }
+        h2 { font-size: 1.2em; }
+        h1, h2 { margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
+        .time-display { font-size: 1.1em; color: #e2e8f0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
+        .side-card .time-display { font-size: 0.9em; }
+        .copyright-display { font-size: 0.8em; color: #cbd5e1; }
+        .pin-icon-container { position: absolute; top: 0; right: 0; z-index: 3; width: 56px; height: 56px; overflow: hidden; }
+        .pin-icon { position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 56px 56px 0; border-color: transparent #f97316 transparent transparent; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)); }
+        .pin-icon-text { position: absolute; top: 8px; right: 8px; color: #fff; font-weight: bold; font-size: 10px; text-transform: uppercase; transform: rotate(45deg); transform-origin: center; z-index: 4; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .confidence-circle-container { position: relative; width: 50px; height: 50px; }
+        .main-card .confidence-circle-container { width: 60px; height: 60px; }
+        .confidence-circle { display: block; margin: 0 auto; width: 100%; height: 100%; }
+        .circle-bg { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-width: 3.8; }
+        .circle-progress { fill: none; stroke-width: 3.8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s; filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.8)); }
+        .circle-text { font-size: 11px; font-weight: 600; text-anchor: middle; stroke: #000; stroke-width: 0.6px; paint-order: stroke; transition: fill 0.5s; }
+        .main-card .circle-text { font-size: 10px; }
+        .footer-text p { margin: 0; }
+        .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
+        .footer-right { display: flex; align-items: flex-end; gap: 15px; }
+        .copyright-display { margin: 0 0 5px 0; text-align: right; }
+
+        /* --- DYNAMIC LAYOUT STYLES --- */
+        .layout-1 .main-layout, .layout-3 .main-layout, .layout-4e .main-layout { display: flex; }
+        .layout-1 .left-column { flex: 1; }
+        .layout-1 .right-column { display: none; }
+        .layout-3 .left-column, .layout-4e .left-column { flex: 2; }
+        .layout-3 .right-column, .layout-4e .right-column { flex: 1; }
+        .layout-3 #card-3 { display: none; }
+        .layout-4g .main-layout { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .layout-4g .left-column, .layout-4g .right-column { display: contents; }
+        .layout-4g .detection-card { flex: 1; }
+        .layout-4g .detection-card h1, .layout-4g .detection-card h2 { font-size: 1.8em; }
+
+        /* --- MODAL AND SETTINGS STYLES --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.3s; }
+        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: max-content; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
+        .modal-content h2 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 12px; font-size: 1.5em; color: #111; text-shadow: none; }
+        #qrModal .modal-content { text-align: center; }
+        #qrModal .modal-content img { max-width: 400px; max-height: 50vh; height: auto; display: block; margin-left: auto; margin-right: auto; }
+        .modal-content p#qrUrlText { margin-top: 8px; font-family: 'Courier New', Courier, monospace; font-size: 1.5em; color: #333; font-weight: bold; white-space: nowrap; }
+
+        #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; transform: translateY(-100%); transition: transform 0.3s ease-in-out; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); padding-bottom: 15px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+        #settings-overlay.visible { transform: translateY(0); }
+        #settings-menu { padding: 25px 20px 15px 20px; display: flex; justify-content: center; gap: 20px; }
+        .settings-btn { padding: 12px 25px; font-size: 1.1em; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; background-color: #f8fafc; color: #1e293b; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: background-color 0.2s, transform 0.2s; }
+        .settings-btn:active { transform: scale(0.96); }
+        .settings-btn.shutdown { background-color: #dc2626; color: white; }
+        #swipe-handle { width: 50px; height: 5px; background-color: rgba(255, 255, 255, 0.6); border-radius: 2.5px; margin: 0 auto; }
+        #settings-icon-btn { position: absolute; top: 10px; left: 10px; background: none; border: none; cursor: pointer; padding: 5px; z-index: 10; }
+        #settings-icon-btn svg { width: 28px; height: 28px; fill: #555; }
+        #mic-status-icon { position: absolute; top: 10px; right: 10px; z-index: 10; }
+        #mic-status-icon svg { width: 28px; height: 28px; transition: fill 0.3s; }
+        #mic-status-icon.connected svg { fill: #22c55e; }
+        #mic-status-icon.disconnected svg { fill: #dc2626; }
+
+        /* ENHANCED SETTINGS MODAL */
+        #settingsModal { z-index: 1100; }
+        #settingsModal .modal-content { width: 700px; max-width: 95vw; color: #111; padding: 0; }
+        .settings-header { padding: 20px 25px; border-bottom: 1px solid #e2e8f0; }
+        .settings-header h2 { margin: 0; }
+        .settings-tabs { display: flex; border-bottom: 2px solid #e2e8f0; background-color: #f8fafc; }
+        .tab-button { flex: 1; padding: 15px 10px; border: none; background: none; cursor: pointer; font-size: 0.95em; font-weight: 500; color: #64748b; transition: all 0.2s; border-bottom: 3px solid transparent; }
+        .tab-button:hover { background-color: #e2e8f0; }
+        .tab-button.active { color: #3b82f6; border-bottom-color: #3b82f6; background-color: white; }
+        .tab-content { display: none; padding: 25px; max-height: 60vh; overflow-y: auto; }
+        .tab-content.active { display: block; }
+        .settings-group { margin-bottom: 20px; }
+        .settings-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #1e293b; }
+        .settings-group input[type="text"], .settings-group input[type="number"], .settings-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1em; box-sizing: border-box; }
+        .settings-group input[type="text"]:focus, .settings-group input[type="number"]:focus, .settings-group select:focus { outline: none; border-color: #3b82f6; }
+        .settings-group small { display: block; margin-top: 5px; color: #64748b; font-size: 0.85em; }
+        .settings-row { display: flex; gap: 15px; }
+        .settings-row > div { flex: 1; }
+        .btn-group { display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #e2e8f0; color: #1e293b; }
+        .btn-secondary:hover { background-color: #cbd5e1; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .system-buttons { display: flex; gap: 10px; }
+        .system-buttons .btn { flex: 1; }
+        input[type="range"] { width: 100%; height: 15px; -webkit-appearance: none; background: #e2e8f0; border-radius: 8px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; }
+        input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; border: none; }
+        .pinned-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 8px; background-color: #f8fafc; border-radius: 8px; }
+        .pinned-item-name { font-weight: 500; }
+        .pinned-item-time { font-size: 0.9em; color: #64748b; margin-left: 10px; }
+        .dismiss-btn { padding: 6px 12px; font-size: 0.9em; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .dismiss-btn:hover { background-color: #b91c1c; }
+        #pinned-species-list:empty::before { content: 'No pinned species'; color: #94a3b8; font-style: italic; display: block; padding: 10px; }
+        .layout-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .layout-btn { padding: 8px 16px; border: 1px solid #ccc; background-color: #f0f0f0; border-radius: 8px; cursor: pointer; }
+        .layout-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        .status-indicator.connected { background-color: #22c55e; }
+        .status-indicator.disconnected { background-color: #dc2626; }
+        .info-box { background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; margin: 15px 0; border-radius: 4px; }
+        .info-box p { margin: 0; color: #1e293b; font-size: 0.9em; }
+        .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 15px 0; border-radius: 4px; }
+        .warning-box p { margin: 0; color: #78350f; font-size: 0.9em; }
+
+        #confirmModal { z-index: 1200; }
+        #confirmModal .modal-content { width: 400px; padding: 25px; text-align: center; }
+        #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
+        #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+        #confirmBtn, #cancelBtn { padding: 10px 25px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; }
+        #cancelBtn { background-color: #e2e8f0; }
+        #confirmBtn { background-color: #dc2626; color: white; }
+    </style>
+</head>
+<body class="">
+
+    <div id="settings-overlay">
+        <div id="settings-menu">
+            <button id="mode-btn" class="settings-btn">Change Mode</button>
+            <button id="shutdown-btn" class="settings-btn shutdown">Shutdown</button>
+        </div>
+        <div id="swipe-handle"></div>
+    </div>
+
+    <div class="main-layout">
+        <div class="left-column">
+            {% if birds and birds[0] %}
+            <div id="card-0" class="detection-card main-card">
+                <div id="card-bg-0" class="card-background" style="background-image: url('{{ birds[0].image_url }}');"></div>
+                <img id="img-0" class="bird-image" src="{{ birds[0].image_url }}" alt="Image of bird">
+                <div class="card-content-overlay">
+                    <div><h1 id="name-0">{{ birds[0].name }}</h1></div>
+                    <div class="card-footer">
+                        <div class="footer-text">
+                            <p id="time-0" class="time-display">{{ birds[0].time_display }}</p>
+                            <p id="copyright-0" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
+                            <div id="confidence-container-0" class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="right-column">
+            {% if birds and birds[1] %}
+            <div id="card-1" class="detection-card side-card">
+                <div id="card-bg-1" class="card-background" style="background-image: url('{{ birds[1].image_url }}');"></div>
+                <img id="img-1" class="bird-image" src="{{ birds[1].image_url }}" alt="Image of bird">
+                <div class="card-content-overlay">
+                    <div><h2 id="name-1">{{ birds[1].name }}</h2></div>
+                    <div class="card-footer">
+                        <div class="footer-text">
+                            <p id="time-1" class="time-display">{{ birds[1].time_display }}</p>
+                            <p id="copyright-1" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
+                            <div id="confidence-container-1" class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if birds and birds[2] %}
+            <div id="card-2" class="detection-card side-card">
+                <div id="card-bg-2" class="card-background" style="background-image: url('{{ birds[2].image_url }}');"></div>
+                <img id="img-2" class="bird-image" src="{{ birds[2].image_url }}" alt="Image of bird">
+                <div class="card-content-overlay">
+                    <div><h2 id="name-2">{{ birds[2].name }}</h2></div>
+                    <div class="card-footer">
+                        <div class="footer-text">
+                            <p id="time-2" class="time-display">{{ birds[2].time_display }}</p>
+                            <p id="copyright-2" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
+                            <div id="confidence-container-2" class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if birds and birds[3] %}
+            <div id="card-3" class="detection-card side-card">
+                 <div id="card-bg-3" class="card-background" style="background-image: url('{{ birds[3].image_url }}');"></div>
+                <img id="img-3" class="bird-image" src="{{ birds[3].image_url }}" alt="Image of bird">
+                <div class="card-content-overlay">
+                    <div><h2 id="name-3">{{ birds[3].name }}</h2></div>
+                    <div class="card-footer">
+                        <div class="footer-text">
+                            <p id="time-3" class="time-display">{{ birds[3].time_display }}</p>
+                            <p id="copyright-3" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
+                            <div id="confidence-container-3" class="confidence-circle-container" data-confidence="{{ birds[3].confidence_value }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="qrModal" class="modal-overlay">
+        <div class="modal-content">
+            <div id="mic-status-icon" title="Microphone Status">
+                <svg viewBox="0 0 24 24"><path d="M12,14c1.66,0,3-1.34,3-3V5c0-1.66-1.34-3-3-3S9,3.34,9,5v6C9,12.66,10.34,14,12,14z M17.3,11c0,3-2.54,5.1-5.3,5.1 S6.7,14,6.7,11H5c0,3.41,2.72,6.23,6,6.72V21h2v-3.28c3.28-0.49,6-3.31,6-6.72H17.3z"/></svg>
+            </div>
+            <button id="settings-icon-btn" title="Open Settings">
+                <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.72C8.63,5.96,8.1,6.29,7.6,6.67L5.22,5.71C5,5.64,4.75,5.7,4.63,5.92L2.71,9.24 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.82,11.69,4.8,12,4.8,12.31c0,0.31,0.02,0.63,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.38,2.91 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.38-2.91c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.02,0.59-0.22l1.92-3.32c0.12-0.2,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+            </button>
+            <h2>More details</h2>
+            <img id="qrImage" src="" alt="Server Address QR Code">
+            <p id="qrUrlText"></p>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="settings-header">
+                <h2>Settings</h2>
+            </div>
+
+            <div class="settings-tabs">
+                <button class="tab-button active" data-tab="display">Display</button>
+                <button class="tab-button" data-tab="location">Location</button>
+                <button class="tab-button" data-tab="audio">Audio</button>
+                <button class="tab-button" data-tab="detection">Detection</button>
+                <button class="tab-button" data-tab="system">System</button>
+            </div>
+
+            <!-- Display Tab -->
+            <div id="tab-display" class="tab-content active">
+                <div class="settings-group">
+                    <label>Display Layout</label>
+                    <div class="layout-btn-group">
+                        <button class="layout-btn" data-layout="1">1 Bird</button>
+                        <button class="layout-btn" data-layout="3">3 Birds</button>
+                        <button class="layout-btn" data-layout="4e">4 Tall</button>
+                        <button class="layout-btn" data-layout="4g">4 Grid</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="brightness-slider">Screen Brightness</label>
+                    <input type="range" id="brightness-slider" min="15" max="255" value="255">
+                </div>
+                <div class="settings-group">
+                    <label>Pinned Species</label>
+                    <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
+                    <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
+                </div>
+            </div>
+
+            <!-- Location Tab -->
+            <div id="tab-location" class="tab-content">
+                <div class="info-box">
+                    <p>Configure your location for accurate bird species identification based on your region.</p>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label for="latitude">Latitude</label>
+                        <input type="number" id="latitude" step="0.000001" placeholder="e.g., 42.5063">
+                        <small>Decimal degrees (-90 to 90)</small>
+                    </div>
+                    <div class="settings-group">
+                        <label for="longitude">Longitude</label>
+                        <input type="number" id="longitude" step="0.000001" placeholder="e.g., -90.7168">
+                        <small>Decimal degrees (-180 to 180)</small>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="locale">Language/Locale</label>
+                    <select id="locale">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="it">Italiano</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="getGeoLocation()">Use My Location</button>
+                    <button class="btn btn-primary" onclick="saveLocationSettings()">Save Location</button>
+                </div>
+            </div>
+
+            <!-- Audio Tab -->
+            <div id="tab-audio" class="tab-content">
+                <div class="info-box">
+                    <p>Configure audio input sources for bird detection. Changes require service restart.</p>
+                </div>
+                <div class="settings-group">
+                    <label for="esp32-ip">ESP32 Microphone IP Address</label>
+                    <input type="text" id="esp32-ip" placeholder="e.g., 192.168.1.211">
+                    <small>IP address of your ESP32 audio streaming device</small>
+                </div>
+                <div class="settings-group">
+                    <label for="esp32-port">ESP32 Stream Port</label>
+                    <input type="text" id="esp32-port" placeholder="e.g., 8080">
+                </div>
+                <div class="settings-group">
+                    <label for="rtsp-url">RTSP Stream URL</label>
+                    <input type="text" id="rtsp-url" placeholder="rtsp://localhost:8554/birdnet_audio">
+                    <small>Full RTSP URL for BirdNET-Go audio source</small>
+                </div>
+                <div class="settings-group">
+                    <label>MediaMTX Status</label>
+                    <div style="display: flex; align-items: center;">
+                        <span class="status-indicator disconnected" id="mediamtx-status"></span>
+                        <span id="mediamtx-status-text">Checking...</span>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="testAudioConnection()">Test Connection</button>
+                    <button class="btn btn-primary" onclick="saveAudioSettings()">Save & Restart Services</button>
+                </div>
+            </div>
+
+            <!-- Detection Tab -->
+            <div id="tab-detection" class="tab-content">
+                <div class="info-box">
+                    <p>Adjust bird detection parameters. Higher threshold = fewer but more confident detections.</p>
+                </div>
+                <div class="settings-group">
+                    <label for="confidence-threshold">Detection Confidence Threshold</label>
+                    <input type="range" id="confidence-threshold" min="0.1" max="1.0" step="0.05" value="0.8">
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                        <small>More detections (10%)</small>
+                        <strong id="threshold-value">80%</strong>
+                        <small>Fewer detections (100%)</small>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="detection-interval">Detection Interval (seconds)</label>
+                    <input type="number" id="detection-interval" min="5" max="60" value="15">
+                    <small>Time between detection analyses</small>
+                </div>
+                <div class="settings-group">
+                    <label for="overlap">Audio Overlap</label>
+                    <input type="number" id="overlap" min="0" max="2.9" step="0.1" value="0">
+                    <small>Seconds of overlap between audio segments (0-2.9)</small>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="resetDetectionDefaults()">Reset to Defaults</button>
+                    <button class="btn btn-primary" onclick="saveDetectionSettings()">Save & Apply</button>
+                </div>
+            </div>
+
+            <!-- System Tab -->
+            <div id="tab-system" class="tab-content">
+                <div class="settings-group">
+                    <label>Service Management</label>
+                    <div class="system-buttons">
+                        <button class="btn btn-secondary" onclick="restartService('mediamtx')">Restart MediaMTX</button>
+                        <button class="btn btn-secondary" onclick="restartService('birdnet-go')">Restart BirdNET-Go</button>
+                    </div>
+                </div>
+                <div class="warning-box" style="margin-top: 20px;">
+                    <p><strong>⚠️ System Control</strong><br>These actions will restart or shutdown the system immediately.</p>
+                </div>
+                <div class="settings-group">
+                    <label>Power Options</label>
+                    <div class="system-buttons">
+                        <button id="restart-btn" class="btn btn-danger">Restart System</button>
+                        <button id="power-btn" class="btn btn-danger">Power Off</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="confirmMessage"></p>
+            <div id="confirmButtons">
+                <button id="cancelBtn">Cancel</button>
+                <button id="confirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- TAB MANAGEMENT ---
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabName = btn.dataset.tab;
+                    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+                });
+            });
+
+            // --- LAYOUT LOGIC ---
+            const savedLayout = localStorage.getItem('birdLayout') || '3';
+
+            function applyLayout(layout) {
+                document.body.className = `layout-${layout}`;
+                document.querySelectorAll('.layout-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.layout === layout);
+                });
+            }
+
+            document.querySelectorAll('.layout-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const layout = btn.dataset.layout;
+                    localStorage.setItem('birdLayout', layout);
+                    window.location.reload();
+                });
+            });
+            applyLayout(savedLayout);
+
+            // --- MODALS AND SETTINGS ---
+            const qrModal = document.getElementById('qrModal');
+            const settingsModal = document.getElementById('settingsModal');
+            const confirmModal = document.getElementById('confirmModal');
+            let confirmAction = null;
+            const qrImage = document.getElementById('qrImage');
+            const qrUrlText = document.getElementById('qrUrlText');
+            let timeoutId;
+            qrImage.src = '/qr_code.png';
+            qrUrlText.textContent = {{ server_url | tojson }};
+
+            function hideQrModal() { qrModal.style.display = 'none'; if (timeoutId) { clearTimeout(timeoutId); } }
+            function showQrModal() { qrModal.style.display = 'flex'; timeoutId = setTimeout(hideQrModal, 30000); }
+            document.querySelector('.main-layout').addEventListener('click', showQrModal);
+            qrModal.addEventListener('click', e => { if (e.target === qrModal) hideQrModal(); });
+
+            function hideSettingsModal() { settingsModal.style.display = 'none'; }
+            async function showSettingsModal(e) {
+                e.stopPropagation();
+                await loadAllSettings();
+                settingsModal.style.display = 'flex';
+            }
+            document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
+            settingsModal.addEventListener('click', e => { if (e.target === settingsModal) hideSettingsModal(); });
+
+            function showConfirmModal(message, action) {
+                document.getElementById('confirmMessage').textContent = message;
+                confirmAction = action;
+                confirmModal.style.display = 'flex';
+            }
+            document.getElementById('cancelBtn').addEventListener('click', () => { confirmModal.style.display = 'none'; confirmAction = null; });
+            document.getElementById('confirmBtn').addEventListener('click', () => {
+                if (confirmAction) confirmAction();
+                confirmModal.style.display = 'none'; confirmAction = null;
+            });
+
+            // Brightness slider
+            document.getElementById('brightness-slider').addEventListener('input', e => {
+                fetch('/brightness', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brightness: e.target.value })
+                });
+            });
+
+            // Threshold slider display
+            document.getElementById('confidence-threshold').addEventListener('input', e => {
+                document.getElementById('threshold-value').textContent = Math.round(e.target.value * 100) + '%';
+            });
+
+            // System buttons
+            document.getElementById('restart-btn').addEventListener('click', () => {
+                showConfirmModal('Are you sure you want to restart the system?', () => {
+                    fetch('/reboot', { method: 'POST' });
+                    document.body.innerHTML = '<h1>System is restarting...</h1>';
+                });
+            });
+            document.getElementById('power-btn').addEventListener('click', () => {
+                showConfirmModal('Are you sure you want to power off the system?', () => {
+                    fetch('/poweroff', { method: 'POST' });
+                    document.body.innerHTML = '<h1>System is shutting down...</h1>';
+                });
+            });
+
+            // Microphone status
+            const micIcon = document.getElementById('mic-status-icon');
+            async function checkAudioStatus() {
+                try {
+                    const response = await fetch('/audio_status');
+                    const data = await response.json();
+                    if (data.connected) {
+                        micIcon.classList.add('connected');
+                        micIcon.classList.remove('disconnected');
+                        micIcon.title = "Microphone Connected";
+                    } else {
+                        micIcon.classList.add('disconnected');
+                        micIcon.classList.remove('connected');
+                        micIcon.title = "Microphone Disconnected";
+                    }
+                } catch (error) {
+                    micIcon.classList.add('disconnected');
+                    micIcon.classList.remove('connected');
+                    micIcon.title = "Microphone Status Unknown";
+                }
+            }
+
+            // Load pinned species
+            async function loadPinnedSpecies() {
+                try {
+                    const response = await fetch('/api/pinned_species');
+                    const pinnedList = await response.json();
+                    const container = document.getElementById('pinned-species-list');
+                    const dismissAllBtn = document.getElementById('dismiss-all-btn');
+                    container.innerHTML = '';
+
+                    if (pinnedList.length === 0) {
+                        dismissAllBtn.style.display = 'none';
+                        return;
+                    }
+
+                    dismissAllBtn.style.display = 'block';
+
+                    pinnedList.forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'pinned-item';
+                        itemDiv.innerHTML = `
+                            <div>
+                                <span class="pinned-item-name">${item.name}</span>
+                                <span class="pinned-item-time">(${item.hours_remaining}h remaining)</span>
+                            </div>
+                            <button class="dismiss-btn" data-species="${item.name}">Dismiss</button>
+                        `;
+                        container.appendChild(itemDiv);
+                    });
+
+                    container.querySelectorAll('.dismiss-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const speciesName = e.target.dataset.species;
+                            try {
+                                const response = await fetch(`/api/dismiss_pinned/${encodeURIComponent(speciesName)}`, { method: 'POST' });
+                                if (response.ok) {
+                                    await loadPinnedSpecies();
+                                    await fetchAndUpdate();
+                                }
+                            } catch (error) {
+                                console.error('Error dismissing pinned species:', error);
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('Error loading pinned species:', error);
+                }
+            }
+
+            document.getElementById('dismiss-all-btn').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/dismiss_all_pinned', { method: 'POST' });
+                    if (response.ok) {
+                        await loadPinnedSpecies();
+                        await fetchAndUpdate();
+                    }
+                } catch (error) {
+                    console.error('Error dismissing all pinned species:', error);
+                }
+            });
+
+            // --- CONFIGURATION MANAGEMENT ---
+            async function loadAllSettings() {
+                await loadPinnedSpecies();
+                await loadLocationSettings();
+                await loadAudioSettings();
+                await loadDetectionSettings();
+            }
+
+            async function loadLocationSettings() {
+                try {
+                    const response = await fetch('/api/config/birdnet');
+                    const config = await response.json();
+                    if (config.location) {
+                        document.getElementById('latitude').value = config.location.latitude || '';
+                        document.getElementById('longitude').value = config.location.longitude || '';
+                        document.getElementById('locale').value = config.location.locale || 'en';
+                    }
+                } catch (error) {
+                    console.error('Error loading location settings:', error);
+                }
+            }
+
+            async function loadAudioSettings() {
+                try {
+                    const [displayResp, birdnetResp] = await Promise.all([
+                        fetch('/api/config/display'),
+                        fetch('/api/config/birdnet')
+                    ]);
+                    const displayConfig = await displayResp.json();
+                    const birdnetConfig = await birdnetResp.json();
+
+                    document.getElementById('esp32-ip').value = displayConfig.esp32_ip || '';
+                    document.getElementById('esp32-port').value = displayConfig.esp32_port || '8080';
+
+                    if (birdnetConfig.realtime && birdnetConfig.realtime.rtsp_urls.length > 0) {
+                        document.getElementById('rtsp-url').value = birdnetConfig.realtime.rtsp_urls[0];
+                    }
+                } catch (error) {
+                    console.error('Error loading audio settings:', error);
+                }
+            }
+
+            async function loadDetectionSettings() {
+                try {
+                    const response = await fetch('/api/config/birdnet');
+                    const config = await response.json();
+                    if (config.detection) {
+                        document.getElementById('confidence-threshold').value = config.detection.threshold || 0.8;
+                        document.getElementById('threshold-value').textContent = Math.round((config.detection.threshold || 0.8) * 100) + '%';
+                        document.getElementById('overlap').value = config.detection.overlap || 0;
+                    }
+                    if (config.realtime) {
+                        document.getElementById('detection-interval').value = config.realtime.interval || 15;
+                    }
+                } catch (error) {
+                    console.error('Error loading detection settings:', error);
+                }
+            }
+
+            // --- DYNAMIC DATA REFRESH LOGIC ---
+            const refreshIntervalMs = {{ refresh_interval * 1000 }};
+
+            function updateConfidenceCircle(index, confidence) {
+                const container = document.getElementById(`confidence-container-${index}`);
+                if (!container) return;
+                container.dataset.confidence = confidence;
+                const isMain = index === 0 && savedLayout !== '4g';
+                const textClass = isMain ? 'main-card' : '';
+                container.innerHTML = `<svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text ${textClass}">${confidence}%</text></svg>`;
+                const progressCircle = container.querySelector('.circle-progress');
+                const textElement = container.querySelector('.circle-text');
+                const circumference = 99.99;
+                progressCircle.style.strokeDasharray = `${circumference}, ${circumference}`;
+                progressCircle.style.strokeDashoffset = circumference - (confidence / 100) * circumference;
+                let color = '#ef4444';
+                if (confidence >= 70) { color = '#22c55e'; } else if (confidence >= 50) { color = '#f97316'; }
+                progressCircle.style.stroke = color;
+                textElement.style.fill = color;
+            }
+
+            function updateCard(index, bird) {
+                const card = document.getElementById(`card-${index}`);
+                if (!card) return;
+                if (!bird) {
+                    card.style.display = 'none';
+                    return;
+                }
+                card.style.display = '';
+
+                const mainImage = document.getElementById(`img-${index}`);
+                const bgImage = document.getElementById(`card-bg-${index}`);
+
+                const currentUrl = new URL(mainImage.src, window.location.href).pathname;
+                const newUrl = new URL(bird.image_url, window.location.href).pathname;
+
+                if (currentUrl !== newUrl) {
+                    const tempImg = new Image();
+                    tempImg.onload = function() {
+                        mainImage.src = tempImg.src;
+                        bgImage.style.backgroundImage = `url('${tempImg.src}')`;
+                    };
+                    tempImg.src = bird.image_url;
+                }
+                document.getElementById(`name-${index}`).textContent = bird.name;
+                document.getElementById(`time-${index}`).textContent = bird.time_display;
+                const copyrightElem = document.getElementById(`copyright-${index}`);
+                if (bird.copyright && bird.copyright.trim() !== "") {
+                    copyrightElem.textContent = bird.copyright;
+                    copyrightElem.style.display = "block";
+                } else {
+                    copyrightElem.textContent = "";
+                    copyrightElem.style.display = "none";
+                }
+
+                const confidenceContainer = document.getElementById(`confidence-container-${index}`);
+                if (bird.is_offline) {
+                    confidenceContainer.style.display = "none";
+                } else {
+                    confidenceContainer.style.display = "block";
+                    updateConfidenceCircle(index, bird.confidence_value);
+                }
+
+                // Handle pinned badge
+                let pinContainer = card.querySelector('.pin-icon-container');
+                if (bird.is_pinned) {
+                    if (!pinContainer) {
+                        pinContainer = document.createElement('div');
+                        pinContainer.className = 'pin-icon-container';
+                        pinContainer.innerHTML = '<div class="pin-icon"></div><div class="pin-icon-text">NEW</div>';
+                        card.appendChild(pinContainer);
+                    }
+                } else {
+                    if (pinContainer) pinContainer.remove();
+                }
+            }
+
+            async function fetchAndUpdate() {
+                try {
+                    const response = await fetch('/data');
+                    const data = await response.json();
+                    for (let i = 0; i < 4; i++) {
+                        updateCard(i, data.birds[i] || null);
+                    }
+                } catch (error) {
+                    console.error('Error fetching bird data:', error);
+                }
+            }
+
+            setInterval(fetchAndUpdate, refreshIntervalMs);
+            setInterval(checkAudioStatus, 30000);
+            checkAudioStatus();
+
+            for (let i = 0; i < 4; i++) {
+                const conf = document.getElementById(`confidence-container-${i}`)?.dataset.confidence;
+                if (conf) updateConfidenceCircle(i, parseInt(conf));
+            }
+        });
+
+        // --- GLOBAL FUNCTIONS FOR SETTINGS ---
+        function getGeoLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+                    document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+                    alert('Location detected! Click "Save Location" to apply.');
+                }, error => {
+                    alert('Unable to get location: ' + error.message);
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+
+        async function saveLocationSettings() {
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lon = parseFloat(document.getElementById('longitude').value);
+            const locale = document.getElementById('locale').value;
+
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Please enter valid latitude and longitude values.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location: { latitude: lat, longitude: lon, locale: locale },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Location settings saved! BirdNET-Go is restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        async function saveAudioSettings() {
+            const esp32Ip = document.getElementById('esp32-ip').value;
+            const esp32Port = document.getElementById('esp32-port').value;
+            const rtspUrl = document.getElementById('rtsp-url').value;
+
+            try {
+                // Save display config
+                await fetch('/api/config/display', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        esp32_ip: esp32Ip,
+                        esp32_port: esp32Port
+                    })
+                });
+
+                // Save BirdNET config
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        realtime: { rtsp_urls: [rtspUrl] },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success' || result.status === 'warning') {
+                    alert('Audio settings saved! Services are restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        async function saveDetectionSettings() {
+            const threshold = parseFloat(document.getElementById('confidence-threshold').value);
+            const interval = parseInt(document.getElementById('detection-interval').value);
+            const overlap = parseFloat(document.getElementById('overlap').value);
+
+            try {
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        detection: { threshold: threshold, overlap: overlap },
+                        realtime: { interval: interval },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Detection settings saved! BirdNET-Go is restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        function resetDetectionDefaults() {
+            document.getElementById('confidence-threshold').value = 0.8;
+            document.getElementById('threshold-value').textContent = '80%';
+            document.getElementById('detection-interval').value = 15;
+            document.getElementById('overlap').value = 0;
+        }
+
+        async function testAudioConnection() {
+            const esp32Ip = document.getElementById('esp32-ip').value;
+            const esp32Port = document.getElementById('esp32-port').value;
+            const url = `http://${esp32Ip}:${esp32Port}/stream`;
+
+            try {
+                const response = await fetch(url, { method: 'HEAD', timeout: 5000 });
+                if (response.ok) {
+                    alert('✅ Connection successful!\nESP32 is streaming audio.');
+                } else {
+                    alert('❌ Connection failed!\nESP32 returned: ' + response.status);
+                }
+            } catch (error) {
+                alert('❌ Cannot connect to ESP32!\n' + error.message);
+            }
+        }
+
+        async function restartService(serviceName) {
+            const serviceMap = {
+                'mediamtx': 'mediamtx.service',
+                'birdnet-go': 'birdnet-go.service'
+            };
+
+            if (confirm(`Restart ${serviceName}? This will briefly interrupt bird detection.`)) {
+                try {
+                    const response = await fetch(`/api/service/restart/${serviceMap[serviceName]}`, {
+                        method: 'POST'
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        alert(`✅ ${serviceName} restarted successfully!`);
+                    } else {
+                        alert(`❌ Failed to restart: ${result.message}`);
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
