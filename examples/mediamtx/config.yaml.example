@@ -1,0 +1,40 @@
+# BirdNET-Go Configuration Snippet for RTSP Audio
+#
+# Add this to your main config.yaml file (typically at /root/birdnet-go-app/config/config.yaml)
+#
+# This configures BirdNET-Go to receive audio from MediaMTX RTSP server
+
+realtime:
+  interval: 15
+  processingtime: false
+
+  audio:
+    # Leave source empty when using RTSP
+    source: ""
+
+    ffmpegpath: /usr/bin/ffmpeg
+    soxpath: /usr/bin/sox
+    streamtransport: sse
+
+    export:
+      enabled: true
+      path: /data/clips/
+      type: aac
+      bitrate: 96k
+
+  # RTSP stream configuration
+  rtsp:
+    transport: tcp
+    urls:
+      - rtsp://localhost:8554/birdnet_audio
+    health:
+      healthydatathreshold: 60
+      monitoringinterval: 30
+    ffmpegparameters: []
+
+# Note: The threshold setting controls detection sensitivity
+# For troubleshooting, you can lower it temporarily:
+#
+# birdnet:
+#   threshold: 0.1  # 10% confidence (very sensitive, for testing)
+#   # threshold: 0.8  # 80% confidence (normal production setting)
