@@ -4,7 +4,7 @@
     <meta charset="UTF-8"><title>Live Bird Detections</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
-        
+
         /* Base styles for components */
         .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
         .left-column { display: flex; flex-direction: column; }
@@ -35,7 +35,7 @@
         .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
         .footer-right { display: flex; align-items: flex-end; gap: 15px; }
         .copyright-display { margin: 0 0 5px 0; text-align: right; }
-        
+
         /* --- DYNAMIC LAYOUT STYLES --- */
         .layout-1 .main-layout, .layout-3 .main-layout, .layout-4e .main-layout { display: flex; }
         .layout-1 .left-column { flex: 1; }
@@ -47,16 +47,15 @@
         .layout-4g .left-column, .layout-4g .right-column { display: contents; }
         .layout-4g .detection-card { flex: 1; }
         .layout-4g .detection-card h1, .layout-4g .detection-card h2 { font-size: 1.8em; }
-        .layout-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        .layout-btn { padding: 8px 16px; border: 1px solid #ccc; background-color: #f0f0f0; border-radius: 8px; cursor: pointer; }
-        .layout-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
 
         /* --- MODAL AND SETTINGS STYLES --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.3s; }
-        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: max-content; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
+        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: max-content; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
         .modal-content h2 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 12px; font-size: 1.5em; color: #111; text-shadow: none; }
+        #qrModal .modal-content { text-align: center; }
         #qrModal .modal-content img { max-width: 400px; max-height: 50vh; height: auto; display: block; margin-left: auto; margin-right: auto; }
         .modal-content p#qrUrlText { margin-top: 8px; font-family: 'Courier New', Courier, monospace; font-size: 1.5em; color: #333; font-weight: bold; white-space: nowrap; }
+
         #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; transform: translateY(-100%); transition: transform 0.3s ease-in-out; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); padding-bottom: 15px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
         #settings-overlay.visible { transform: translateY(0); }
         #settings-menu { padding: 25px 20px 15px 20px; display: flex; justify-content: center; gap: 20px; }
@@ -68,24 +67,37 @@
         #settings-icon-btn svg { width: 28px; height: 28px; fill: #555; }
         #mic-status-icon { position: absolute; top: 10px; right: 10px; z-index: 10; }
         #mic-status-icon svg { width: 28px; height: 28px; transition: fill 0.3s; }
-        #mic-status-icon.connected svg { fill: #22c55e; } /* Green */
-        #mic-status-icon.disconnected svg { fill: #dc2626; } /* Red */
+        #mic-status-icon.connected svg { fill: #22c55e; }
+        #mic-status-icon.disconnected svg { fill: #dc2626; }
+
+        /* ENHANCED SETTINGS MODAL */
         #settingsModal { z-index: 1100; }
-        #settingsModal .modal-content { width: 400px; max-width: 90vw; color: #111; }
-        #settingsModal h2 { margin-bottom: 25px; }
-        .settings-group { margin-bottom: 20px; text-align: left; }
-        .settings-group label { display: block; margin-bottom: 8px; font-weight: 500; }
-        .system-buttons { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
-        .system-btn { flex: 1; padding: 12px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
-        .restart-btn { background-color: #f97316; color: white; }
-        .power-btn { background-color: #dc2626; color: white; }
-        #confirmModal { z-index: 1200; }
-        #confirmModal .modal-content { width: 400px; padding: 25px; }
-        #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
-        #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
-        #confirmBtn, #cancelBtn { padding: 10px 25px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; }
-        #cancelBtn { background-color: #e2e8f0; }
-        #confirmBtn { background-color: #dc2626; color: white; }
+        #settingsModal .modal-content { width: 700px; max-width: 95vw; color: #111; padding: 0; }
+        .settings-header { padding: 20px 25px; border-bottom: 1px solid #e2e8f0; }
+        .settings-header h2 { margin: 0; }
+        .settings-tabs { display: flex; border-bottom: 2px solid #e2e8f0; background-color: #f8fafc; }
+        .tab-button { flex: 1; padding: 15px 10px; border: none; background: none; cursor: pointer; font-size: 0.95em; font-weight: 500; color: #64748b; transition: all 0.2s; border-bottom: 3px solid transparent; }
+        .tab-button:hover { background-color: #e2e8f0; }
+        .tab-button.active { color: #3b82f6; border-bottom-color: #3b82f6; background-color: white; }
+        .tab-content { display: none; padding: 25px; max-height: 60vh; overflow-y: auto; }
+        .tab-content.active { display: block; }
+        .settings-group { margin-bottom: 20px; }
+        .settings-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #1e293b; }
+        .settings-group input[type="text"], .settings-group input[type="number"], .settings-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1em; box-sizing: border-box; }
+        .settings-group input[type="text"]:focus, .settings-group input[type="number"]:focus, .settings-group select:focus { outline: none; border-color: #3b82f6; }
+        .settings-group small { display: block; margin-top: 5px; color: #64748b; font-size: 0.85em; }
+        .settings-row { display: flex; gap: 15px; }
+        .settings-row > div { flex: 1; }
+        .btn-group { display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #e2e8f0; color: #1e293b; }
+        .btn-secondary:hover { background-color: #cbd5e1; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .system-buttons { display: flex; gap: 10px; }
+        .system-buttons .btn { flex: 1; }
         input[type="range"] { width: 100%; height: 15px; -webkit-appearance: none; background: #e2e8f0; border-radius: 8px; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; }
         input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; border: none; }
@@ -95,14 +107,33 @@
         .dismiss-btn { padding: 6px 12px; font-size: 0.9em; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; }
         .dismiss-btn:hover { background-color: #b91c1c; }
         #pinned-species-list:empty::before { content: 'No pinned species'; color: #94a3b8; font-style: italic; display: block; padding: 10px; }
+        .layout-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .layout-btn { padding: 8px 16px; border: 1px solid #ccc; background-color: #f0f0f0; border-radius: 8px; cursor: pointer; }
+        .layout-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        .status-indicator.connected { background-color: #22c55e; }
+        .status-indicator.disconnected { background-color: #dc2626; }
+        .info-box { background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; margin: 15px 0; border-radius: 4px; }
+        .info-box p { margin: 0; color: #1e293b; font-size: 0.9em; }
+        .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 15px 0; border-radius: 4px; }
+        .warning-box p { margin: 0; color: #78350f; font-size: 0.9em; }
+
+        #confirmModal { z-index: 1200; }
+        #confirmModal .modal-content { width: 400px; padding: 25px; text-align: center; }
+        #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
+        #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+        #confirmBtn, #cancelBtn { padding: 10px 25px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; }
+        #cancelBtn { background-color: #e2e8f0; }
+        #confirmBtn { background-color: #dc2626; color: white; }
     </style>
 </head>
-<body class="">
+<body class="layout-3">
 
     <div id="settings-overlay">
         <div id="settings-menu">
             <button id="mode-btn" class="settings-btn">Change Mode</button>
             <button id="shutdown-btn" class="settings-btn shutdown">Shutdown</button>
+            <button id="exit-kiosk-btn" class="settings-btn" style="background-color: #2563eb; color: white;">Exit Kiosk</button>
         </div>
         <div id="swipe-handle"></div>
     </div>
@@ -199,35 +230,161 @@
             <p id="qrUrlText"></p>
         </div>
     </div>
-    
+
     <div id="settingsModal" class="modal-overlay">
         <div class="modal-content">
-            <h2>Settings</h2>
-            <div class="settings-group">
-                <label>Display Layout</label>
-                <div class="layout-btn-group">
-                    <button class="layout-btn" data-layout="1">1 Bird</button>
-                    <button class="layout-btn" data-layout="3">3 Birds</button>
-                    <button class="layout-btn" data-layout="4e">4 Tall</button>
-                    <button class="layout-btn" data-layout="4g">4 Grid</button>
+            <div class="settings-header">
+                <h2>Settings</h2>
+            </div>
+
+            <div class="settings-tabs">
+                <button class="tab-button active" data-tab="display">Display</button>
+                <button class="tab-button" data-tab="location">Location</button>
+                <button class="tab-button" data-tab="audio">Audio</button>
+                <button class="tab-button" data-tab="detection">Detection</button>
+                <button class="tab-button" data-tab="system">System</button>
+            </div>
+
+            <!-- Display Tab -->
+            <div id="tab-display" class="tab-content active">
+                <div class="settings-group">
+                    <label>Display Layout</label>
+                    <div class="layout-btn-group">
+                        <button class="layout-btn" data-layout="1">1 Bird</button>
+                        <button class="layout-btn" data-layout="3">3 Birds</button>
+                        <button class="layout-btn" data-layout="4e">4 Tall</button>
+                        <button class="layout-btn" data-layout="4g">4 Grid</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="brightness-slider">Screen Brightness</label>
+                    <input type="range" id="brightness-slider" min="15" max="255" value="255">
+                </div>
+                <div class="settings-group">
+                    <label>Pinned Species</label>
+                    <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
+                    <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
                 </div>
             </div>
-            <div class="settings-group">
-                <label for="brightness-slider">Screen Brightness</label>
-                <input type="range" id="brightness-slider" min="15" max="255" value="255">
+
+            <!-- Location Tab -->
+            <div id="tab-location" class="tab-content">
+                <div class="info-box">
+                    <p>Configure your location for accurate bird species identification based on your region.</p>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-group">
+                        <label for="latitude">Latitude</label>
+                        <input type="number" id="latitude" step="0.000001" placeholder="e.g., 42.5063">
+                        <small>Decimal degrees (-90 to 90)</small>
+                    </div>
+                    <div class="settings-group">
+                        <label for="longitude">Longitude</label>
+                        <input type="number" id="longitude" step="0.000001" placeholder="e.g., -90.7168">
+                        <small>Decimal degrees (-180 to 180)</small>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="locale">Language/Locale</label>
+                    <select id="locale">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="it">Italiano</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="getGeoLocation()">Use My Location</button>
+                    <button class="btn btn-primary" onclick="saveLocationSettings()">Save Location</button>
+                </div>
             </div>
-            <div class="settings-group">
-                <label>Pinned Species</label>
-                <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
-                <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
+
+            <!-- Audio Tab -->
+            <div id="tab-audio" class="tab-content">
+                <div class="info-box">
+                    <p>Configure audio input sources for bird detection. Changes require service restart.</p>
+                </div>
+                <div class="settings-group">
+                    <label for="esp32-ip">ESP32 Microphone IP Address</label>
+                    <input type="text" id="esp32-ip" placeholder="e.g., 192.168.1.211">
+                    <small>IP address of your ESP32 audio streaming device</small>
+                </div>
+                <div class="settings-group">
+                    <label for="esp32-port">ESP32 Stream Port</label>
+                    <input type="text" id="esp32-port" placeholder="e.g., 8080">
+                </div>
+                <div class="settings-group">
+                    <label for="rtsp-url">RTSP Stream URL</label>
+                    <input type="text" id="rtsp-url" placeholder="rtsp://localhost:8554/birdnet_audio">
+                    <small>Full RTSP URL for BirdNET-Go audio source</small>
+                </div>
+                <div class="settings-group">
+                    <label>MediaMTX Status</label>
+                    <div style="display: flex; align-items: center;">
+                        <span class="status-indicator disconnected" id="mediamtx-status"></span>
+                        <span id="mediamtx-status-text">Checking...</span>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="testAudioConnection()">Test Connection</button>
+                    <button class="btn btn-primary" onclick="saveAudioSettings()">Save & Restart Services</button>
+                </div>
             </div>
-            <div class="system-buttons">
-                <button id="restart-btn" class="system-btn restart-btn">Restart</button>
-                <button id="power-btn" class="system-btn power-btn">Power Off</button>
+
+            <!-- Detection Tab -->
+            <div id="tab-detection" class="tab-content">
+                <div class="info-box">
+                    <p>Adjust bird detection parameters. Higher threshold = fewer but more confident detections.</p>
+                </div>
+                <div class="settings-group">
+                    <label for="confidence-threshold">Detection Confidence Threshold</label>
+                    <input type="range" id="confidence-threshold" min="0.1" max="1.0" step="0.05" value="0.8">
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                        <small>More detections (10%)</small>
+                        <strong id="threshold-value">80%</strong>
+                        <small>Fewer detections (100%)</small>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label for="detection-interval">Detection Interval (seconds)</label>
+                    <input type="number" id="detection-interval" min="5" max="60" value="15">
+                    <small>Time between detection analyses</small>
+                </div>
+                <div class="settings-group">
+                    <label for="overlap">Audio Overlap</label>
+                    <input type="number" id="overlap" min="0" max="2.9" step="0.1" value="0">
+                    <small>Seconds of overlap between audio segments (0-2.9)</small>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="resetDetectionDefaults()">Reset to Defaults</button>
+                    <button class="btn btn-primary" onclick="saveDetectionSettings()">Save & Apply</button>
+                </div>
+            </div>
+
+            <!-- System Tab -->
+            <div id="tab-system" class="tab-content">
+                <div class="settings-group">
+                    <label>Service Management</label>
+                    <div class="system-buttons">
+                        <button class="btn btn-secondary" onclick="restartService('mediamtx')">Restart MediaMTX</button>
+                        <button class="btn btn-secondary" onclick="restartService('birdnet-go')">Restart BirdNET-Go</button>
+                    </div>
+                </div>
+                <div class="warning-box" style="margin-top: 20px;">
+                    <p><strong>⚠️ System Control</strong><br>These actions will restart or shutdown the system immediately.</p>
+                </div>
+                <div class="settings-group">
+                    <label>Power Options</label>
+                    <div class="system-buttons">
+                        <button id="restart-btn" class="btn btn-danger">Restart System</button>
+                        <button id="power-btn" class="btn btn-danger">Power Off</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    
+
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-content">
             <p id="confirmMessage"></p>
@@ -237,12 +394,23 @@
             </div>
         </div>
     </div>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // --- TAB MANAGEMENT ---
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabName = btn.dataset.tab;
+                    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+                });
+            });
+
             // --- LAYOUT LOGIC ---
             const savedLayout = localStorage.getItem('birdLayout') || '3';
-            
+
             function applyLayout(layout) {
                 document.body.className = `layout-${layout}`;
                 document.querySelectorAll('.layout-btn').forEach(btn => {
@@ -254,11 +422,11 @@
                 btn.addEventListener('click', () => {
                     const layout = btn.dataset.layout;
                     localStorage.setItem('birdLayout', layout);
-                    window.location.reload(); 
+                    window.location.reload();
                 });
             });
             applyLayout(savedLayout);
-            
+
             // --- MODALS AND SETTINGS ---
             const qrModal = document.getElementById('qrModal');
             const settingsModal = document.getElementById('settingsModal');
@@ -277,8 +445,8 @@
 
             function hideSettingsModal() { settingsModal.style.display = 'none'; }
             async function showSettingsModal(e) {
-                e.stopPropagation(); // Prevent QR modal from opening
-                await loadPinnedSpecies();
+                e.stopPropagation();
+                await loadAllSettings();
                 settingsModal.style.display = 'flex';
             }
             document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
@@ -295,12 +463,20 @@
                 confirmModal.style.display = 'none'; confirmAction = null;
             });
 
+            // Brightness slider
             document.getElementById('brightness-slider').addEventListener('input', e => {
                 fetch('/brightness', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ brightness: e.target.value })
                 });
             });
+
+            // Threshold slider display
+            document.getElementById('confidence-threshold').addEventListener('input', e => {
+                document.getElementById('threshold-value').textContent = Math.round(e.target.value * 100) + '%';
+            });
+
+            // System buttons
             document.getElementById('restart-btn').addEventListener('click', () => {
                 showConfirmModal('Are you sure you want to restart the system?', () => {
                     fetch('/reboot', { method: 'POST' });
@@ -313,7 +489,14 @@
                     document.body.innerHTML = '<h1>System is shutting down...</h1>';
                 });
             });
-            
+
+            document.getElementById("exit-kiosk-btn").addEventListener("click", () => {
+                showConfirmModal("Exit kiosk mode and open terminal?", () => {
+                    fetch("/exit_kiosk", { method: "POST" });
+                    document.body.innerHTML = "<h1>Opening terminal...</h1>";
+                });
+            });
+            // Microphone status
             const micIcon = document.getElementById('mic-status-icon');
             async function checkAudioStatus() {
                 try {
@@ -335,6 +518,7 @@
                 }
             }
 
+            // Load pinned species
             async function loadPinnedSpecies() {
                 try {
                     const response = await fetch('/api/pinned_species');
@@ -344,12 +528,10 @@
                     container.innerHTML = '';
 
                     if (pinnedList.length === 0) {
-                        // Empty state is handled by CSS
                         dismissAllBtn.style.display = 'none';
                         return;
                     }
 
-                    // Show dismiss all button when there are pinned species
                     dismissAllBtn.style.display = 'block';
 
                     pinnedList.forEach(item => {
@@ -365,15 +547,14 @@
                         container.appendChild(itemDiv);
                     });
 
-                    // Add event listeners to dismiss buttons
                     container.querySelectorAll('.dismiss-btn').forEach(btn => {
                         btn.addEventListener('click', async (e) => {
                             const speciesName = e.target.dataset.species;
                             try {
                                 const response = await fetch(`/api/dismiss_pinned/${encodeURIComponent(speciesName)}`, { method: 'POST' });
                                 if (response.ok) {
-                                    await loadPinnedSpecies(); // Reload the list
-                                    await fetchAndUpdate(); // Refresh the main display
+                                    await loadPinnedSpecies();
+                                    await fetchAndUpdate();
                                 }
                             } catch (error) {
                                 console.error('Error dismissing pinned species:', error);
@@ -385,18 +566,76 @@
                 }
             }
 
-            // Dismiss All button handler
             document.getElementById('dismiss-all-btn').addEventListener('click', async () => {
                 try {
                     const response = await fetch('/api/dismiss_all_pinned', { method: 'POST' });
                     if (response.ok) {
-                        await loadPinnedSpecies(); // Reload the list
-                        await fetchAndUpdate(); // Refresh the main display
+                        await loadPinnedSpecies();
+                        await fetchAndUpdate();
                     }
                 } catch (error) {
                     console.error('Error dismissing all pinned species:', error);
                 }
             });
+
+            // --- CONFIGURATION MANAGEMENT ---
+            async function loadAllSettings() {
+                await loadPinnedSpecies();
+                await loadLocationSettings();
+                await loadAudioSettings();
+                await loadDetectionSettings();
+            }
+
+            async function loadLocationSettings() {
+                try {
+                    const response = await fetch('/api/config/birdnet');
+                    const config = await response.json();
+                    if (config.location) {
+                        document.getElementById('latitude').value = config.location.latitude || '';
+                        document.getElementById('longitude').value = config.location.longitude || '';
+                        document.getElementById('locale').value = config.location.locale || 'en';
+                    }
+                } catch (error) {
+                    console.error('Error loading location settings:', error);
+                }
+            }
+
+            async function loadAudioSettings() {
+                try {
+                    const [displayResp, birdnetResp] = await Promise.all([
+                        fetch('/api/config/display'),
+                        fetch('/api/config/birdnet')
+                    ]);
+                    const displayConfig = await displayResp.json();
+                    const birdnetConfig = await birdnetResp.json();
+
+                    document.getElementById('esp32-ip').value = displayConfig.esp32_ip || '';
+                    document.getElementById('esp32-port').value = displayConfig.esp32_port || '8080';
+
+                    if (birdnetConfig.realtime && birdnetConfig.realtime.rtsp_urls.length > 0) {
+                        document.getElementById('rtsp-url').value = birdnetConfig.realtime.rtsp_urls[0];
+                    }
+                } catch (error) {
+                    console.error('Error loading audio settings:', error);
+                }
+            }
+
+            async function loadDetectionSettings() {
+                try {
+                    const response = await fetch('/api/config/birdnet');
+                    const config = await response.json();
+                    if (config.detection) {
+                        document.getElementById('confidence-threshold').value = config.detection.threshold || 0.8;
+                        document.getElementById('threshold-value').textContent = Math.round((config.detection.threshold || 0.8) * 100) + '%';
+                        document.getElementById('overlap').value = config.detection.overlap || 0;
+                    }
+                    if (config.realtime) {
+                        document.getElementById('detection-interval').value = config.realtime.interval || 15;
+                    }
+                } catch (error) {
+                    console.error('Error loading detection settings:', error);
+                }
+            }
 
             // --- DYNAMIC DATA REFRESH LOGIC ---
             const refreshIntervalMs = {{ refresh_interval * 1000 }};
@@ -431,14 +670,12 @@
                 const mainImage = document.getElementById(`img-${index}`);
                 const bgImage = document.getElementById(`card-bg-${index}`);
 
-                // Check if URL actually changed (avoid comparing full URLs with query params)
                 const currentUrl = new URL(mainImage.src, window.location.href).pathname;
                 const newUrl = new URL(bird.image_url, window.location.href).pathname;
 
                 if (currentUrl !== newUrl) {
                     const tempImg = new Image();
                     tempImg.onload = function() {
-                        // Update images instantly without opacity transition to prevent white flash
                         mainImage.src = tempImg.src;
                         bgImage.style.backgroundImage = `url('${tempImg.src}')`;
                     };
@@ -455,72 +692,203 @@
                     copyrightElem.style.display = "none";
                 }
 
-                // Hide confidence circle in offline mode
                 const confidenceContainer = document.getElementById(`confidence-container-${index}`);
                 if (bird.is_offline) {
-                    confidenceContainer.style.display = 'none';
+                    confidenceContainer.style.display = "none";
                 } else {
-                    confidenceContainer.style.display = '';
+                    confidenceContainer.style.display = "block";
                     updateConfidenceCircle(index, bird.confidence_value);
                 }
 
-                // Update pin icon
-                let iconContainer = card.querySelector('.pin-icon-container');
+                // Handle pinned badge
+                let pinContainer = card.querySelector('.pin-icon-container');
                 if (bird.is_pinned) {
-                    if (!iconContainer) {
-                        iconContainer = document.createElement('div');
-                        iconContainer.className = 'pin-icon-container';
-
-                        const triangle = document.createElement('div');
-                        triangle.className = 'pin-icon';
-
-                        const text = document.createElement('span');
-                        text.className = 'pin-icon-text';
-                        text.textContent = 'NEW';
-
-                        iconContainer.appendChild(triangle);
-                        iconContainer.appendChild(text);
-                        card.appendChild(iconContainer);
+                    if (!pinContainer) {
+                        pinContainer = document.createElement('div');
+                        pinContainer.className = 'pin-icon-container';
+                        pinContainer.innerHTML = '<div class="pin-icon"></div><div class="pin-icon-text">NEW</div>';
+                        card.appendChild(pinContainer);
                     }
                 } else {
-                    if (iconContainer) {
-                        iconContainer.remove();
-                    }
+                    if (pinContainer) pinContainer.remove();
                 }
             }
 
             async function fetchAndUpdate() {
                 try {
                     const response = await fetch('/data');
-                    if (!response.ok) { console.error("Failed to fetch data, status:", response.status); return; }
                     const data = await response.json();
-                    for (let i = 0; i < 4; i++) { updateCard(i, data.birds[i]); }
-                } catch (error) { console.error("Error fetching update:", error); }
+                    for (let i = 0; i < 4; i++) {
+                        updateCard(i, data.birds[i] || null);
+                    }
+                } catch (error) {
+                    console.error('Error fetching bird data:', error);
+                }
             }
 
-            // Initial setup for circles and copyright that were rendered by the server
-            {% for i in range(4) %}
-                {% if birds and birds[i] %}
-                    {% if birds[i].get('is_offline') %}
-                        document.getElementById('confidence-container-{{ i }}').style.display = 'none';
-                    {% else %}
-                        updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
-                    {% endif %}
-                    const copyrightElem{{ i }} = document.getElementById('copyright-{{ i }}');
-                    const copyrightText{{ i }} = "{{ birds[i].copyright }}";
-                    if (copyrightText{{ i }} && copyrightText{{ i }}.trim() !== "") {
-                        copyrightElem{{ i }}.textContent = copyrightText{{ i }};
-                        copyrightElem{{ i }}.style.display = "block";
-                    } else {
-                        copyrightElem{{ i }}.style.display = "none";
-                    }
-                {% endif %}
-            {% endfor %}
-            
-            checkAudioStatus();
-            setInterval(checkAudioStatus, 5000);
             setInterval(fetchAndUpdate, refreshIntervalMs);
+            setInterval(checkAudioStatus, 30000);
+            checkAudioStatus();
+
+            for (let i = 0; i < 4; i++) {
+                const conf = document.getElementById(`confidence-container-${i}`)?.dataset.confidence;
+                if (conf) updateConfidenceCircle(i, parseInt(conf));
+            }
         });
+
+        // --- GLOBAL FUNCTIONS FOR SETTINGS ---
+        function getGeoLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+                    document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+                    alert('Location detected! Click "Save Location" to apply.');
+                }, error => {
+                    alert('Unable to get location: ' + error.message);
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+
+        async function saveLocationSettings() {
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lon = parseFloat(document.getElementById('longitude').value);
+            const locale = document.getElementById('locale').value;
+
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Please enter valid latitude and longitude values.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location: { latitude: lat, longitude: lon, locale: locale },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Location settings saved! BirdNET-Go is restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        async function saveAudioSettings() {
+            const esp32Ip = document.getElementById('esp32-ip').value;
+            const esp32Port = document.getElementById('esp32-port').value;
+            const rtspUrl = document.getElementById('rtsp-url').value;
+
+            try {
+                // Save display config
+                await fetch('/api/config/display', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        esp32_ip: esp32Ip,
+                        esp32_port: esp32Port
+                    })
+                });
+
+                // Save BirdNET config
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        realtime: { rtsp_urls: [rtspUrl] },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success' || result.status === 'warning') {
+                    alert('Audio settings saved! Services are restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        async function saveDetectionSettings() {
+            const threshold = parseFloat(document.getElementById('confidence-threshold').value);
+            const interval = parseInt(document.getElementById('detection-interval').value);
+            const overlap = parseFloat(document.getElementById('overlap').value);
+
+            try {
+                const response = await fetch('/api/config/birdnet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        detection: { threshold: threshold, overlap: overlap },
+                        realtime: { interval: interval },
+                        restart_service: true
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Detection settings saved! BirdNET-Go is restarting...');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        function resetDetectionDefaults() {
+            document.getElementById('confidence-threshold').value = 0.8;
+            document.getElementById('threshold-value').textContent = '80%';
+            document.getElementById('detection-interval').value = 15;
+            document.getElementById('overlap').value = 0;
+        }
+
+        async function testAudioConnection() {
+            const esp32Ip = document.getElementById('esp32-ip').value;
+            const esp32Port = document.getElementById('esp32-port').value;
+            const url = `http://${esp32Ip}:${esp32Port}/stream`;
+
+            try {
+                const response = await fetch(url, { method: 'HEAD', timeout: 5000 });
+                if (response.ok) {
+                    alert('✅ Connection successful!\nESP32 is streaming audio.');
+                } else {
+                    alert('❌ Connection failed!\nESP32 returned: ' + response.status);
+                }
+            } catch (error) {
+                alert('❌ Cannot connect to ESP32!\n' + error.message);
+            }
+        }
+
+        async function restartService(serviceName) {
+            const serviceMap = {
+                'mediamtx': 'mediamtx.service',
+                'birdnet-go': 'birdnet-go.service'
+            };
+
+            if (confirm(`Restart ${serviceName}? This will briefly interrupt bird detection.`)) {
+                try {
+                    const response = await fetch(`/api/service/restart/${serviceMap[serviceName]}`, {
+                        method: 'POST'
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        alert(`✅ ${serviceName} restarted successfully!`);
+                    } else {
+                        alert(`❌ Failed to restart: ${result.message}`);
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
     </script>
 </body>
 </html>
