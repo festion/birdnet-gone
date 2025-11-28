@@ -75,4 +75,4 @@ jobs:
           sleep 5
           ssh ${PI_USER}@${PI_HOST} "curl -s http://localhost:5000/data | head -c 200"
           echo ""
-          echo "Deployment complete!"
+          echo "Deployment complete at $(date)"
