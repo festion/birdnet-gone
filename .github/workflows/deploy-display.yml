@@ -28,7 +28,7 @@ jobs:
         run: |
           echo "Deploying display to $PI_HOST..."
 
-          # Sync display files (excluding cache and runtime files)
+          # Sync display files (excluding cache, runtime files, and venv)
           rsync -avz --delete \
             --exclude='__pycache__' \
             --exclude='*.pyc' \
@@ -36,6 +36,9 @@ jobs:
             --exclude='display_config.json' \
             --exclude='pinned_species.json' \
             --exclude='static/bird_images_cache' \
+            --exclude='venv' \
+            --exclude='*.backup' \
+            --exclude='*_original.*' \
             display/ ${PI_USER}@${PI_HOST}:~/birdnet_display/
 
           echo "Files synced successfully"
