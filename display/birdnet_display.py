@@ -9,6 +9,8 @@ import qrcode
 import io
 import json
 import sys
+import yaml
+import subprocess
 
 # Import variables and functions from the new cache builder script
 from cache_builder import CACHE_DIRECTORY, SPECIES_FILE, load_species_from_file
@@ -25,8 +27,91 @@ SERVER_PORT = 5000
 PINNED_SPECIES_FILE = "pinned_species.json"
 PINNED_DURATION_HOURS = 24
 
+# Configuration file paths
+BIRDNET_CONFIG_PATH = "/root/birdnet-go-app/config/config.yaml"
+MEDIAMTX_CONFIG_PATH = "/etc/mediamtx.yml"
+DISPLAY_CONFIG_FILE = "display_config.json"
+
 # --- Flask App Initialization ---
 app = Flask(__name__, template_folder='static')
+
+# --- Configuration Management ---
+def load_display_config():
+    """Load display-specific configuration (cached settings)"""
+    if not os.path.exists(DISPLAY_CONFIG_FILE):
+        return {
+            'birdnet_server_url': 'http://localhost:8080',
+            'esp32_ip': '192.168.1.211',
+            'esp32_port': '8080',
+            'microphone_status_url': 'http://10.42.0.50/api/status'
+        }
+    try:
+        with open(DISPLAY_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading display config: {e}")
+        return {}
+
+def save_display_config(config):
+    """Save display-specific configuration"""
+    try:
+        with open(DISPLAY_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        return True
+    except IOError as e:
+        print(f"Error saving display config: {e}")
+        return False
+
+def load_birdnet_config():
+    """Load BirdNET-Go configuration from YAML"""
+    if not os.path.exists(BIRDNET_CONFIG_PATH):
+        return None
+    try:
+        with open(BIRDNET_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        print(f"Error loading BirdNET config: {e}")
+        return None
+
+def save_birdnet_config(config):
+    """Save BirdNET-Go configuration to YAML"""
+    try:
+        with open(BIRDNET_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        return True
+    except Exception as e:
+        print(f"Error saving BirdNET config: {e}")
+        return False
+
+def load_mediamtx_config():
+    """Load MediaMTX configuration from YAML"""
+    if not os.path.exists(MEDIAMTX_CONFIG_PATH):
+        return None
+    try:
+        with open(MEDIAMTX_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        print(f"Error loading MediaMTX config: {e}")
+        return None
+
+def save_mediamtx_config(config):
+    """Save MediaMTX configuration to YAML"""
+    try:
+        with open(MEDIAMTX_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        return True
+    except Exception as e:
+        print(f"Error saving MediaMTX config: {e}")
+        return False
+
+def restart_service(service_name):
+    """Restart a systemd service"""
+    try:
+        subprocess.run(['sudo', 'systemctl', 'restart', service_name],
+                       check=True, capture_output=True, text=True)
+        return True, f"Service {service_name} restarted successfully"
+    except subprocess.CalledProcessError as e:
+        return False, f"Failed to restart {service_name}: {e.stderr}"
 
 # --- Caching & Status Globals ---
 DETECTION_CACHE = { "id": None, "raw_data": [] }
@@ -285,7 +370,7 @@ def index():
     refresh_interval = 30 if api_is_down else 5
     server_url = f"http://{get_local_ip()}:8080"
     return render_template(
-        template_path, birds=bird_data, refresh_interval=refresh_interval, 
+        template_path, birds=bird_data, refresh_interval=refresh_interval,
         api_is_down=api_is_down, server_url=server_url
     )
 
@@ -296,8 +381,9 @@ def data():
 
 @app.route('/audio_status')
 def audio_status():
+    display_config = load_display_config()
+    status_url = display_config.get('microphone_status_url', "http://10.42.0.50/api/status")
     try:
-        status_url = "http://10.42.0.50/api/status"
         response = requests.get(status_url, timeout=5)
         response.raise_for_status()
         status_data = response.json()
@@ -345,6 +431,12 @@ def poweroff_system():
     return jsonify({'status': 'shutting down'})
 
 @app.route('/api/pinned_species')
+@app.route("/exit_kiosk", methods=["POST"])
+def exit_kiosk():
+    print("Exiting kiosk mode and opening terminal...")
+    os.system("pkill chromium; sudo systemctl stop bird-display; XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 lxterminal &")
+    return jsonify({"status": "exiting kiosk"})
+
 def get_pinned_species():
     """Return list of currently pinned species with time remaining."""
     active_pinned = get_active_pinned_species()
@@ -385,12 +477,189 @@ def dismiss_all_pinned():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# --- NEW: Configuration Management API Endpoints ---
+
+@app.route('/api/config/display', methods=['GET'])
+def get_display_config_api():
+    """Get display configuration"""
+    config = load_display_config()
+    return jsonify(config)
+
+@app.route('/api/config/display', methods=['POST'])
+def update_display_config_api():
+    """Update display configuration"""
+    try:
+        new_config = request.json
+        if save_display_config(new_config):
+            return jsonify({'status': 'success', 'message': 'Display configuration updated'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to save configuration'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/config/birdnet', methods=['GET'])
+def get_birdnet_config_api():
+    """Get BirdNET-Go configuration"""
+    config = load_birdnet_config()
+    if config is None:
+        return jsonify({'status': 'error', 'message': 'Failed to load BirdNET-Go configuration'}), 500
+
+    # Extract relevant settings for display
+    extracted = {
+        'location': {
+            'latitude': config.get('birdnet', {}).get('latitude', 0.0),
+            'longitude': config.get('birdnet', {}).get('longitude', 0.0),
+            'locale': config.get('birdnet', {}).get('locale', 'en')
+        },
+        'detection': {
+            'threshold': config.get('birdnet', {}).get('threshold', 0.8),
+            'overlap': config.get('birdnet', {}).get('overlap', 0.0)
+        },
+        'realtime': {
+            'interval': config.get('realtime', {}).get('interval', 15),
+            'audio_source': config.get('realtime', {}).get('audio', {}).get('source', ''),
+            'rtsp_urls': config.get('realtime', {}).get('rtsp', {}).get('urls', [])
+        }
+    }
+    return jsonify(extracted)
+
+@app.route('/api/config/birdnet', methods=['POST'])
+def update_birdnet_config_api():
+    """Update BirdNET-Go configuration"""
+    try:
+        new_settings = request.json
+        config = load_birdnet_config()
+        if config is None:
+            return jsonify({'status': 'error', 'message': 'Failed to load current configuration'}), 500
+
+        # Update location settings
+        if 'location' in new_settings:
+            if 'birdnet' not in config:
+                config['birdnet'] = {}
+            config['birdnet']['latitude'] = float(new_settings['location'].get('latitude', 0.0))
+            config['birdnet']['longitude'] = float(new_settings['location'].get('longitude', 0.0))
+            if 'locale' in new_settings['location']:
+                config['birdnet']['locale'] = new_settings['location']['locale']
+
+        # Update detection settings
+        if 'detection' in new_settings:
+            if 'birdnet' not in config:
+                config['birdnet'] = {}
+            if 'threshold' in new_settings['detection']:
+                config['birdnet']['threshold'] = float(new_settings['detection']['threshold'])
+            if 'overlap' in new_settings['detection']:
+                config['birdnet']['overlap'] = float(new_settings['detection']['overlap'])
+
+        # Update realtime audio settings
+        if 'realtime' in new_settings:
+            if 'realtime' not in config:
+                config['realtime'] = {}
+            if 'interval' in new_settings['realtime']:
+                config['realtime']['interval'] = int(new_settings['realtime']['interval'])
+            if 'audio_source' in new_settings['realtime']:
+                if 'audio' not in config['realtime']:
+                    config['realtime']['audio'] = {}
+                config['realtime']['audio']['source'] = new_settings['realtime']['audio_source']
+            if 'rtsp_urls' in new_settings['realtime']:
+                if 'rtsp' not in config['realtime']:
+                    config['realtime']['rtsp'] = {'transport': 'tcp', 'health': {}}
+                config['realtime']['rtsp']['urls'] = new_settings['realtime']['rtsp_urls']
+
+        if save_birdnet_config(config):
+            # Optionally restart BirdNET-Go service
+            if request.json.get('restart_service', False):
+                success, message = restart_service('birdnet-go.service')
+                if not success:
+                    return jsonify({'status': 'warning', 'message': f'Config saved but service restart failed: {message}'}), 200
+            return jsonify({'status': 'success', 'message': 'BirdNET-Go configuration updated'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to save configuration'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/config/mediamtx', methods=['GET'])
+def get_mediamtx_config_api():
+    """Get MediaMTX configuration"""
+    config = load_mediamtx_config()
+    if config is None:
+        return jsonify({'status': 'error', 'message': 'Failed to load MediaMTX configuration'}), 500
+
+    # Extract relevant settings
+    extracted = {
+        'log_level': config.get('logLevel', 'info'),
+        'rtsp_address': config.get('rtspAddress', ':8554'),
+        'paths': {}
+    }
+
+    # Extract path configurations
+    if 'paths' in config:
+        for path_name, path_config in config['paths'].items():
+            extracted['paths'][path_name] = {
+                'runOnInit': path_config.get('runOnInit', ''),
+                'runOnInitRestart': path_config.get('runOnInitRestart', False)
+            }
+
+    return jsonify(extracted)
+
+@app.route('/api/config/mediamtx', methods=['POST'])
+def update_mediamtx_config_api():
+    """Update MediaMTX configuration"""
+    try:
+        new_settings = request.json
+        config = load_mediamtx_config()
+        if config is None:
+            return jsonify({'status': 'error', 'message': 'Failed to load current configuration'}), 500
+
+        # Update log level
+        if 'log_level' in new_settings:
+            config['logLevel'] = new_settings['log_level']
+
+        # Update RTSP address
+        if 'rtsp_address' in new_settings:
+            config['rtspAddress'] = new_settings['rtsp_address']
+
+        # Update path configurations
+        if 'paths' in new_settings:
+            if 'paths' not in config:
+                config['paths'] = {}
+            for path_name, path_config in new_settings['paths'].items():
+                if path_name not in config['paths']:
+                    config['paths'][path_name] = {}
+                if 'runOnInit' in path_config:
+                    config['paths'][path_name]['runOnInit'] = path_config['runOnInit']
+                if 'runOnInitRestart' in path_config:
+                    config['paths'][path_name]['runOnInitRestart'] = path_config['runOnInitRestart']
+
+        if save_mediamtx_config(config):
+            # Optionally restart MediaMTX service
+            if request.json.get('restart_service', False):
+                success, message = restart_service('mediamtx.service')
+                if not success:
+                    return jsonify({'status': 'warning', 'message': f'Config saved but service restart failed: {message}'}), 200
+            return jsonify({'status': 'success', 'message': 'MediaMTX configuration updated'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to save configuration'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/service/restart/<service_name>', methods=['POST'])
+def restart_service_api(service_name):
+    """Restart a systemd service"""
+    allowed_services = ['birdnet-go.service', 'mediamtx.service', 'birdnet_display.service']
+    if service_name not in allowed_services:
+        return jsonify({'status': 'error', 'message': f'Service {service_name} not allowed'}), 403
+
+    success, message = restart_service(service_name)
+    if success:
+        return jsonify({'status': 'success', 'message': message})
+    else:
+        return jsonify({'status': 'error', 'message': message}), 500
 
 # --- Main Execution ---
 if __name__ == '__main__':
     if '--build-cache' in sys.argv:
         print("To build the cache, please run 'python cache_builder.py' directly.")
         sys.exit()
-    
+
     print(f"Starting Flask server on http://0.0.0.0:{SERVER_PORT}")
     app.run(host='0.0.0.0', port=SERVER_PORT)
