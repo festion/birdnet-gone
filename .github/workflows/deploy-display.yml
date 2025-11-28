@@ -16,7 +16,6 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-    environment: production
 
     steps:
       - name: Checkout code
