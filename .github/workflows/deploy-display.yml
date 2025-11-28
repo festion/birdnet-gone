@@ -43,12 +43,19 @@ jobs:
 
           echo "Files synced successfully"
 
+      - name: Setup Python venv
+        env:
+          PI_HOST: 192.168.1.197
+          PI_USER: jeremy
+        run: |
+          ssh ${PI_USER}@${PI_HOST} "cd ~/birdnet_display && python3 -m venv venv && source venv/bin/activate && pip install -q flask requests qrcode pillow pyyaml beautifulsoup4"
+
       - name: Restart display service
         env:
           PI_HOST: 192.168.1.197
           PI_USER: jeremy
         run: |
-          ssh ${PI_USER}@${PI_HOST} "sudo systemctl restart bird-display || pkill -f birdnet_display.py && cd ~/birdnet_display && nohup ./run.sh > /tmp/display.log 2>&1 &"
+          ssh ${PI_USER}@${PI_HOST} "pkill -f birdnet_display.py || true; cd ~/birdnet_display && source venv/bin/activate && nohup python3 birdnet_display.py > /tmp/display.log 2>&1 &"
           sleep 5
           ssh ${PI_USER}@${PI_HOST} "curl -s http://localhost:5000 > /dev/null && echo 'Display service is running' || echo 'Warning: Display may not be responding'"
 
