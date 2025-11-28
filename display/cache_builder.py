@@ -134,11 +134,15 @@ def save_species_to_file(species_list, filename):
         print(f"{RED}[ERROR] Failed to save species to file: {e}{NC}")
         return False
 
-def update_species_list_from_api():
-    """Updates species_list.csv from BirdNET-Go API with user confirmation."""
+def update_species_list_from_api(skip_confirmation=False):
+    """Updates species_list.csv from BirdNET-Go API with user confirmation.
+
+    Args:
+        skip_confirmation: If True, skip all user prompts (for automated use)
+    """
     # Check location settings first
     location_set = check_location_settings()
-    if location_set is False:
+    if location_set is False and not skip_confirmation:
         print(f"\n{YELLOW}[WARNING] It looks like the location used for range data is not set in BirdNET-Go.{NC}")
         print(f"{YELLOW}[WARNING] The species list may not be accurate for your location.{NC}")
         confirm = input("Would you still like to continue? (yes/no): ").strip().lower()
@@ -153,17 +157,19 @@ def update_species_list_from_api():
 
     # Check if file exists
     file_exists = os.path.exists(SPECIES_FILE)
-    if file_exists:
+    if file_exists and not skip_confirmation:
         print(f"\n{YELLOW}[WARNING] This will overwrite the existing '{SPECIES_FILE}' file.{NC}")
         existing_list = load_species_from_file(SPECIES_FILE)
         print(f"Current file has {len(existing_list)} species, API has {len(species_list)} species.")
     else:
-        print(f"\n'{SPECIES_FILE}' does not exist. A new file will be created.")
+        if not file_exists:
+            print(f"\n'{SPECIES_FILE}' does not exist. A new file will be created.")
 
-    confirm = input("Do you want to continue? (yes/no): ").strip().lower()
-    if confirm not in ['yes', 'y']:
-        print("[INFO] Operation cancelled by user")
-        return False
+    if not skip_confirmation:
+        confirm = input("Do you want to continue? (yes/no): ").strip().lower()
+        if confirm not in ['yes', 'y']:
+            print("[INFO] Operation cancelled by user")
+            return False
 
     return save_species_to_file(species_list, SPECIES_FILE)
 
@@ -308,30 +314,115 @@ def process_species(species_info):
 
     return common_name, True
 
-def ensure_cache_is_built():
-    """Checks for and builds the offline image cache with parallel processing."""
+def get_cached_species_list():
+    """Returns list of species that are already in the cache with sufficient images."""
+    if not os.path.exists(CACHE_DIRECTORY):
+        return []
+
+    cached_species = []
+    try:
+        for folder_name in os.listdir(CACHE_DIRECTORY):
+            folder_path = os.path.join(CACHE_DIRECTORY, folder_name)
+            if not os.path.isdir(folder_path):
+                continue
+
+            # Count images in folder
+            images_found = len([f for f in os.listdir(folder_path)
+                              if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
+
+            # Only include if has enough images
+            if images_found >= IMAGES_PER_SPECIES:
+                # Convert folder name back to common name (reverse of species_folder_name logic)
+                common_name = folder_name.replace('_', ' ')
+                cached_species.append(common_name)
+
+        return cached_species
+    except OSError as e:
+        print(f"Error reading cache directory: {e}")
+        return []
+
+def compare_species_lists(api_species, cached_species):
+    """Compare API species list with cached species, return new species to download."""
+    # Convert cached species to set for faster lookup (case-insensitive)
+    cached_set = {name.lower() for name in cached_species}
+
+    # Find species in API list that aren't in cache
+    new_species = []
+    for common_name, scientific_name in api_species:
+        if common_name.lower() not in cached_set:
+            new_species.append((common_name, scientific_name))
+
+    return new_species
+
+def ensure_cache_is_built(incremental=False, check_only=False):
+    """Checks for and builds the offline image cache with parallel processing.
+
+    Args:
+        incremental: If True, only downloads new species not in cache
+        check_only: If True, only reports cache status without downloading
+
+    Returns:
+        int: Exit code (0=success, 1=error, 2=no changes needed)
+    """
     print("--- Checking local image cache... ---")
     bird_species_to_cache = load_species_from_file(SPECIES_FILE)
     if not bird_species_to_cache:
         print(f"WARNING: '{SPECIES_FILE}' not found or empty. Cannot build cache.")
-        return
+        return 1
 
+    # Get currently cached species
+    cached_species = get_cached_species_list()
     total_species = len(bird_species_to_cache)
-    print(f"Processing {total_species} species with {MAX_WORKERS} parallel workers...")
+    cached_count = len(cached_species)
+
+    print(f"Species in list: {total_species}")
+    print(f"Species in cache: {cached_count}")
+
+    # Determine what needs to be downloaded
+    if incremental:
+        species_to_process = compare_species_lists(bird_species_to_cache, cached_species)
+        if not species_to_process:
+            print(f"{GREEN}✓ Cache is up to date! All species are cached.{NC}")
+            return 2  # No changes needed
+        print(f"Found {len(species_to_process)} new species to download")
+    else:
+        species_to_process = bird_species_to_cache
+        print(f"Full rebuild mode - processing all {len(species_to_process)} species")
+
+    # Check-only mode: just report status
+    if check_only:
+        missing_count = len(species_to_process) if incremental else (total_species - cached_count)
+        print(f"\n--- Cache Status Report ---")
+        print(f"Total species: {total_species}")
+        print(f"Cached species: {cached_count}")
+        print(f"Missing species: {missing_count}")
+        if incremental and species_to_process:
+            print(f"\nNew species that would be downloaded:")
+            for i, (common, scientific) in enumerate(species_to_process[:10], 1):
+                print(f"  {i}. {common} ({scientific})")
+            if len(species_to_process) > 10:
+                print(f"  ... and {len(species_to_process) - 10} more")
+        return 2 if missing_count == 0 else 0
+
+    # Process species (download images)
+    total_to_process = len(species_to_process)
+    print(f"Processing {total_to_process} species with {MAX_WORKERS} parallel workers...")
 
     completed = 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
-        future_to_species = {executor.submit(process_species, species): species for species in bird_species_to_cache}
+        future_to_species = {executor.submit(process_species, species): species
+                           for species in species_to_process}
 
         # Process completed tasks
         for future in as_completed(future_to_species):
             species_name, success = future.result()
             completed += 1
             with print_lock:
-                print(f"[{completed}/{total_species}] Completed: {species_name}")
+                print(f"[{completed}/{total_to_process}] Completed: {species_name}")
 
     print("--- Image cache check complete. ---")
+    return 0
 
 def resize_cached_images():
     """Resizes large images to fill the target screen size while maintaining aspect ratio."""
@@ -367,21 +458,56 @@ def resize_cached_images():
 if __name__ == '__main__':
     import sys
 
+    # Parse command-line arguments
+    check_only = '--check-only' in sys.argv
+    incremental = '--incremental' in sys.argv
+    update_species = '--update-species' in sys.argv
+    skip_confirmation = '--skip-confirmation' in sys.argv or '--yes' in sys.argv or '-y' in sys.argv
+    help_flag = '--help' in sys.argv or '-h' in sys.argv
+
+    # Display help
+    if help_flag:
+        print("BirdNET Display - Image Cache Builder")
+        print("\nUsage: python3 cache_builder.py [OPTIONS]")
+        print("\nOptions:")
+        print("  --update-species   Update species list from BirdNET-Go API before building cache")
+        print("  --incremental      Only download images for new species not in cache")
+        print("  --check-only       Check cache status without downloading (implies --incremental)")
+        print("  --help, -h         Show this help message")
+        print("\nExit Codes:")
+        print("  0  Success or cache check complete")
+        print("  1  Error occurred (API down, file error, etc.)")
+        print("  2  No changes needed (cache already up to date)")
+        print("\nExamples:")
+        print("  python3 cache_builder.py                          # Full cache rebuild")
+        print("  python3 cache_builder.py --incremental            # Download only new species")
+        print("  python3 cache_builder.py --check-only             # Check status without downloading")
+        print("  python3 cache_builder.py --update-species --incremental  # Update list and download new species")
+        sys.exit(0)
+
     # Check for --update-species flag
-    if '--update-species' in sys.argv:
+    if update_species:
         print("--- Updating Species List from API ---")
-        if update_species_list_from_api():
-            print("[SUCCESS] Species list updated successfully")
-            # Ask if user wants to continue with cache building
-            build_cache = input("\nDo you want to build the cache now? (yes/no): ").strip().lower()
-            if build_cache not in ['yes', 'y']:
-                print("[INFO] Cache building skipped")
-                sys.exit(0)
-        else:
+        if not update_species_list_from_api(skip_confirmation=skip_confirmation):
             print("[ERROR] Failed to update species list")
             sys.exit(1)
+        print("[SUCCESS] Species list updated successfully")
+        # Don't prompt in automated mode, just continue to cache building
 
+    # Build/check cache
     print("--- Starting Offline Image Cache Builder ---")
-    ensure_cache_is_built()
-    resize_cached_images()
-    print("--- Cache building process complete. ---")
+    exit_code = ensure_cache_is_built(incremental=incremental or check_only, check_only=check_only)
+
+    # Only resize images if we actually downloaded something
+    if not check_only and exit_code == 0:
+        resize_cached_images()
+
+    # Print final status
+    if exit_code == 0:
+        print(f"{GREEN}--- Cache building process complete. ---{NC}")
+    elif exit_code == 2:
+        print(f"{GREEN}--- Cache is already up to date. ---{NC}")
+    else:
+        print(f"{RED}--- Cache building failed. ---{NC}")
+
+    sys.exit(exit_code)
