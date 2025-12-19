@@ -445,6 +445,7 @@ func (c *Controller) initRoutes() {
 		{"support routes", c.initSupportRoutes},
 		{"debug routes", c.initDebugRoutes},
 		{"species routes", c.initSpeciesRoutes},
+		{"telemetry routes", c.initTelemetryRoutes},
 	}
 
 	for _, initializer := range routeInitializers {

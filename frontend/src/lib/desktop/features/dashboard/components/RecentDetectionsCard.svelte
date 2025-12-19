@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import AudioPlayer from '$lib/desktop/components/media/AudioPlayer.svelte';
   import ConfidenceCircle from '$lib/desktop/components/data/ConfidenceCircle.svelte';
   import StatusBadges from '$lib/desktop/components/data/StatusBadges.svelte';
   import ActionMenu from '$lib/desktop/components/ui/ActionMenu.svelte';
   import ConfirmModal from '$lib/desktop/components/modals/ConfirmModal.svelte';
   import { fetchWithCSRF } from '$lib/utils/api';
+  import { getExcludedSpecies } from '$lib/api/speciesApi';
   import type { Detection } from '$lib/types/detection.types';
   import { handleBirdImageError } from '$lib/desktop/components/ui/image-utils.js';
   import { actionIcons, alertIconsSvg } from '$lib/utils/icons';
@@ -53,6 +55,19 @@
 
   // State for number of detections to show
   let selectedLimit = $state(limit);
+
+  // State for excluded species
+  let excludedSpecies = $state<string[]>([]);
+
+  // Load excluded species on component mount
+  onMount(async () => {
+    try {
+      excludedSpecies = await getExcludedSpecies();
+      logger.debug('Loaded excluded species', { count: excludedSpecies.length });
+    } catch (error) {
+      logger.error('Failed to load excluded species', error as Error);
+    }
+  });
 
   // Update selectedLimit when prop changes
   $effect(() => {
@@ -105,7 +120,7 @@
 
   // Toggles whether a species should be ignored in future detections
   function handleToggleSpecies(detection: Detection) {
-    const isExcluded = false; // TODO: determine if species is excluded
+    const isExcluded = excludedSpecies.includes(detection.commonName);
     confirmModalConfig = {
       title: isExcluded
         ? t('dashboard.recentDetections.modals.showSpecies', { species: detection.commonName })
@@ -129,6 +144,10 @@
               common_name: detection.commonName,
             }),
           });
+
+          // Refresh excluded species list to update UI state
+          excludedSpecies = await getExcludedSpecies();
+
           onRefresh();
         } catch (error) {
           logger.error('Error toggling species exclusion:', error);
