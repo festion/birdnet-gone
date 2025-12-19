@@ -456,6 +456,7 @@ func (c *Controller) initRoutes() {
 		{"debug routes", c.initDebugRoutes},
 		{"species routes", c.initSpeciesRoutes},
 		{"dynamic threshold routes", c.initDynamicThresholdRoutes},
+		{"telemetry routes", c.initTelemetryRoutes},
 	}
 
 	for _, initializer := range routeInitializers {
