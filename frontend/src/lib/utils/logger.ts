@@ -34,6 +34,7 @@ export interface Logger {
   info(...args: unknown[]): void;
   warn(...args: unknown[]): void;
   error(...args: unknown[]): void;
+  reportError(error: Error, context?: LogContext): Promise<void>;
   group(label: string): void;
   groupEnd(): void;
   time(label: string): void;
@@ -189,6 +190,43 @@ export function getLogger(category: string): Logger {
         console.error(prefix, message, error, errorData);
       } else {
         console.error(prefix, message, errorData);
+      }
+    },
+
+    async reportError(error: Error, context?: LogContext): Promise<void> {
+      // Log locally first
+      this.error('Reporting error to backend', error, context);
+
+      // Build error payload
+      const payload = {
+        level: 'error' as const,
+        category,
+        message: error.message,
+        stack: error.stack,
+        context: {
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+          timestamp: new Date().toISOString(),
+          ...context,
+        },
+      };
+
+      try {
+        // Send to backend telemetry endpoint
+        const response = await fetch('/api/v2/telemetry/log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          console.warn(prefix, 'Failed to report error to backend:', response.statusText);
+        }
+      } catch (fetchError) {
+        // Don't throw - we don't want error reporting to break the application
+        console.warn(prefix, 'Error reporting failed:', fetchError);
       }
     },
 

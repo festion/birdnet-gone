@@ -54,6 +54,8 @@ func (c *Controller) initSettingsRoutes() {
 	settingsGroup.GET("/imageproviders", c.GetImageProviders)
 	// GET /api/v2/settings/systemid - Retrieves the system ID for support tracking (must be before /:section)
 	settingsGroup.GET("/systemid", c.GetSystemID)
+	// GET /api/v2/settings/species/excluded - Retrieves list of excluded species (must be before /:section)
+	settingsGroup.GET("/species/excluded", c.GetExcludedSpecies)
 	// GET /api/v2/settings/:section - Retrieves settings for a specific section (e.g., birdnet, webserver)
 	settingsGroup.GET("/:section", c.GetSectionSettings)
 	// PUT /api/v2/settings - Updates multiple settings sections with complete replacement
@@ -1857,4 +1859,33 @@ func (c *Controller) GetSystemID(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, response)
+}
+
+// GetExcludedSpecies handles GET /api/v2/settings/species/excluded
+// Returns the list of species that are currently excluded from detections
+func (c *Controller) GetExcludedSpecies(ctx echo.Context) error {
+	c.logAPIRequest(ctx, slog.LevelInfo, "Retrieving excluded species list")
+
+	settings := c.Settings
+	if settings == nil {
+		// Fallback to global settings if controller settings not set
+		settings = conf.Setting()
+		if settings == nil {
+			c.logAPIRequest(ctx, slog.LevelError, "Settings not initialized when trying to get excluded species")
+			return c.HandleError(ctx, fmt.Errorf("settings not initialized"), "Failed to get settings", http.StatusInternalServerError)
+		}
+	}
+
+	// Get excluded species from settings
+	excludedSpecies := settings.Realtime.Species.Exclude
+	if excludedSpecies == nil {
+		excludedSpecies = []string{}
+	}
+
+	c.logAPIRequest(ctx, slog.LevelInfo, "Retrieved excluded species list successfully", "count", len(excludedSpecies))
+
+	return ctx.JSON(http.StatusOK, map[string]any{
+		"excluded": excludedSpecies,
+		"count":    len(excludedSpecies),
+	})
 }

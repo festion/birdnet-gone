@@ -173,9 +173,8 @@
     showConfirmModal = true;
   }
 
-  // Placeholder function for thumbnail URL
+  // Get thumbnail URL from species image API
   function getThumbnailUrl(scientificName: string): string {
-    // TODO: Replace with actual thumbnail API endpoint
     return `/api/v2/media/species-image?name=${encodeURIComponent(scientificName)}`;
   }
 
