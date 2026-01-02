@@ -37,3 +37,8 @@ frontend/coverage/
 frontend/playwright-report*.zip
 REFACTOR_CHANGELOG.md
 .worktrees/
+# Backup files
+*.backup
+*_original.*
+.serena/
+.pio/
