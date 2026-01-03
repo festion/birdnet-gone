@@ -5,11 +5,13 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -25,6 +27,10 @@ const (
 	// defaultQoS is the default Quality of Service level for MQTT messages
 	defaultQoS = 1 // QoS 1 ensures at least once delivery
 )
+
+// clientInstanceCounter ensures unique client IDs across all MQTT client instances
+// to prevent "Client already connected" conflicts when multiple components create clients
+var clientInstanceCounter atomic.Uint64
 
 // client implements the Client interface.
 type client struct {
@@ -45,7 +51,10 @@ func NewClient(settings *conf.Settings, observabilityMetrics *observability.Metr
 	log.Info("Creating new MQTT client")
 	config := DefaultConfig()
 	config.Broker = settings.Realtime.MQTT.Broker
-	config.ClientID = settings.Main.Name
+	// Generate unique client ID by appending instance counter to prevent
+	// "Client already connected" conflicts when multiple components create clients
+	instanceNum := clientInstanceCounter.Add(1)
+	config.ClientID = fmt.Sprintf("%s-%d", settings.Main.Name, instanceNum)
 	config.Username = settings.Realtime.MQTT.Username
 	config.Password = settings.Realtime.MQTT.Password // Keep password in config, but don't log it
 	config.Topic = settings.Realtime.MQTT.Topic
