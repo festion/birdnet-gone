@@ -32,6 +32,10 @@ const (
 // to prevent "Client already connected" conflicts when multiple components create clients
 var clientInstanceCounter atomic.Uint64
 
+// connectionAttemptCounter ensures unique client IDs across reconnection attempts
+// to prevent "Client already connected" conflicts when the same client reconnects
+var connectionAttemptCounter atomic.Uint64
+
 // client implements the Client interface.
 type client struct {
 	config            Config
@@ -500,7 +504,12 @@ func (c *client) checkConnectionCooldownLocked(log logger.Logger) error {
 func (c *client) configureClientOptions(log logger.Logger) (*mqtt.ClientOptions, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(c.config.Broker)
-	opts.SetClientID(c.config.ClientID)
+	// Generate unique client ID for each connection attempt to prevent
+	// "Client already connected" conflicts during reconnection
+	connAttempt := connectionAttemptCounter.Add(1)
+	uniqueClientID := fmt.Sprintf("%s-%d", c.config.ClientID, connAttempt)
+	opts.SetClientID(uniqueClientID)
+	logger.Debug("Using unique client ID for connection", "client_id", uniqueClientID)
 	opts.SetUsername(c.config.Username)
 	opts.SetPassword(c.config.Password) // Do not log the password
 	opts.SetCleanSession(true)
