@@ -32,10 +32,6 @@ const (
 // to prevent "Client already connected" conflicts when multiple components create clients
 var clientInstanceCounter atomic.Uint64
 
-// connectionAttemptCounter ensures unique client IDs across reconnection attempts
-// to prevent "Client already connected" conflicts when the same client reconnects
-var connectionAttemptCounter atomic.Uint64
-
 // client implements the Client interface.
 type client struct {
 	config            Config
@@ -47,6 +43,8 @@ type client struct {
 	metrics           *metrics.MQTTMetrics
 	controlChan       chan string           // Channel for control signals
 	onConnectHandlers []OnConnectHandler    // Handlers called on successful connection
+	// Exponential backoff state
+	currentBackoff    time.Duration         // Current backoff delay (grows with each failed attempt)
 }
 
 // NewClient creates a new MQTT client with the provided configuration.
@@ -55,10 +53,11 @@ func NewClient(settings *conf.Settings, observabilityMetrics *observability.Metr
 	log.Info("Creating new MQTT client")
 	config := DefaultConfig()
 	config.Broker = settings.Realtime.MQTT.Broker
-	// Generate unique client ID by appending instance counter to prevent
-	// "Client already connected" conflicts when multiple components create clients
+	// Generate unique client ID by appending process ID and instance counter to prevent
+	// "Client already connected" conflicts when multiple processes or components create clients
+	// Format: {name}-{pid}-{instance} ensures uniqueness across process restarts
 	instanceNum := clientInstanceCounter.Add(1)
-	config.ClientID = fmt.Sprintf("%s-%d", settings.Main.Name, instanceNum)
+	config.ClientID = fmt.Sprintf("%s-%d-%d", settings.Main.Name, os.Getpid(), instanceNum)
 	config.Username = settings.Realtime.MQTT.Username
 	config.Password = settings.Realtime.MQTT.Password // Keep password in config, but don't log it
 	config.Topic = settings.Realtime.MQTT.Topic
@@ -504,12 +503,10 @@ func (c *client) checkConnectionCooldownLocked(log logger.Logger) error {
 func (c *client) configureClientOptions(log logger.Logger) (*mqtt.ClientOptions, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(c.config.Broker)
-	// Generate unique client ID for each connection attempt to prevent
-	// "Client already connected" conflicts during reconnection
-	connAttempt := connectionAttemptCounter.Add(1)
-	uniqueClientID := fmt.Sprintf("%s-%d", c.config.ClientID, connAttempt)
-	opts.SetClientID(uniqueClientID)
-	logger.Debug("Using unique client ID for connection", "client_id", uniqueClientID)
+	// Use stable client ID - already unique per instance from NewClient() with PID + instance counter
+	// Stable ID allows broker to properly handle session takeover on reconnects
+	opts.SetClientID(c.config.ClientID)
+	GetLogger().Debug("Using client ID for connection", logger.String("client_id", c.config.ClientID))
 	opts.SetUsername(c.config.Username)
 	opts.SetPassword(c.config.Password) // Do not log the password
 	opts.SetCleanSession(true)
@@ -815,6 +812,11 @@ func (c *client) onConnect(client mqtt.Client) {
 		}
 	}
 
+	// Reset exponential backoff on successful connection
+	c.mu.Lock()
+	c.currentBackoff = 0
+	c.mu.Unlock()
+
 	// Call registered OnConnect handlers
 	c.mu.RLock()
 	handlers := make([]OnConnectHandler, len(c.onConnectHandlers))
@@ -877,8 +879,17 @@ func (c *client) startReconnectTimer() {
 		c.reconnectTimer.Stop()
 	}
 
-	reconnectDelay := c.config.ReconnectDelay
-	GetLogger().Info("Starting reconnect timer", logger.Duration("delay", reconnectDelay))
+	// Calculate delay with exponential backoff
+	// If currentBackoff is 0 (first attempt), start with ReconnectDelay
+	if c.currentBackoff == 0 {
+		c.currentBackoff = c.config.ReconnectDelay
+	}
+	reconnectDelay := c.currentBackoff
+
+	GetLogger().Info("Starting reconnect timer with exponential backoff",
+		logger.Duration("delay", reconnectDelay),
+		logger.Duration("max_delay", c.config.MaxReconnectDelay),
+		logger.Float64("multiplier", c.config.ReconnectMultiplier))
 	c.reconnectTimer = time.AfterFunc(reconnectDelay, func() {
 		select {
 		case <-c.reconnectStop: // Check if disconnect was called before timer fired
@@ -923,18 +934,36 @@ func (c *client) reconnectWithBackoff() {
 		}
 		c.metrics.IncrementErrorsWithCategory(errorCategory, "reconnect_failed")
 
+		// Apply exponential backoff: increase delay for next attempt
+		c.mu.Lock()
+		if c.currentBackoff == 0 {
+			c.currentBackoff = c.config.ReconnectDelay
+		}
+		// Calculate next backoff with multiplier
+		nextBackoff := time.Duration(float64(c.currentBackoff) * c.config.ReconnectMultiplier)
+		// Cap at MaxReconnectDelay to prevent unbounded growth
+		if nextBackoff > c.config.MaxReconnectDelay {
+			nextBackoff = c.config.MaxReconnectDelay
+		}
+		c.currentBackoff = nextBackoff
+		GetLogger().Info("Exponential backoff applied", logger.Duration("next_delay", c.currentBackoff), logger.Duration("max_delay", c.config.MaxReconnectDelay))
+		c.mu.Unlock()
+
 		// Check if stopped *after* failed attempt before rescheduling
 		select {
 		case <-c.reconnectStop:
 			log.Info("Reconnect mechanism stopped after failed attempt, not rescheduling")
 			return
 		default:
-			// Schedule next attempt
+			// Schedule next attempt with increased backoff
 			c.startReconnectTimer() // Reschedule another attempt after delay
 		}
 	} else {
-		// Connection successful, logged by onConnect
-		log.Info("Reconnect successful")
+		// Connection successful - reset backoff for future disconnections
+		c.mu.Lock()
+		c.currentBackoff = 0 // Reset backoff on successful connection
+		c.mu.Unlock()
+		log.Info("Reconnect successful, backoff reset")
 		// No need to call startReconnectTimer here, connection is established
 	}
 }
