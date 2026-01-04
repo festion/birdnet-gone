@@ -94,6 +94,9 @@ type Config struct {
 	Retain            bool   // true to retain messages at the broker
 	ReconnectCooldown time.Duration
 	ReconnectDelay    time.Duration
+	// Exponential backoff configuration for reconnection attempts
+	MaxReconnectDelay   time.Duration // Maximum delay between reconnect attempts (caps exponential growth)
+	ReconnectMultiplier float64       // Multiplier for exponential backoff (e.g., 2.0 doubles delay each attempt)
 	// Connection timeouts
 	ConnectTimeout            time.Duration
 	PublishTimeout            time.Duration
@@ -136,6 +139,8 @@ func DefaultConfig() Config {
 	return Config{
 		ReconnectCooldown:         5 * time.Second,
 		ReconnectDelay:            1 * time.Second,
+		MaxReconnectDelay:         5 * time.Minute,  // Cap backoff at 5 minutes
+		ReconnectMultiplier:       2.0,              // Double delay each failed attempt
 		ConnectTimeout:            30 * time.Second,
 		PublishTimeout:            10 * time.Second,
 		DisconnectTimeout:         GracefulDisconnectTimeout, // Use constant for consistency
