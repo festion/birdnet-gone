@@ -3,10 +3,10 @@ package api
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/tphakala/birdnet-go/internal/logger"
 )
 
 // TelemetryLogRequest represents a client-side log/error report
@@ -49,19 +49,19 @@ func (c *Controller) LogTelemetry(ctx echo.Context) error {
 	// Convert context to JSON for structured logging
 	contextJSON, _ := json.Marshal(req.Context)
 
-	// Map log level to slog level
-	var level slog.Level
+	// Map log level to logger.LogLevel
+	var level logger.LogLevel
 	switch req.Level {
 	case "debug":
-		level = slog.LevelDebug
+		level = logger.LogLevelDebug
 	case "info":
-		level = slog.LevelInfo
+		level = logger.LogLevelInfo
 	case "warn":
-		level = slog.LevelWarn
+		level = logger.LogLevelWarn
 	case "error":
-		level = slog.LevelError
+		level = logger.LogLevelError
 	default:
-		level = slog.LevelInfo
+		level = logger.LogLevelInfo
 	}
 
 	// Log the telemetry event
@@ -69,19 +69,19 @@ func (c *Controller) LogTelemetry(ctx echo.Context) error {
 		ctx,
 		level,
 		"Client telemetry",
-		"category", req.Category,
-		"message", req.Message,
-		"context", string(contextJSON),
+		logger.String("category", req.Category),
+		logger.String("message", req.Message),
+		logger.String("context", string(contextJSON)),
 	)
 
 	// For errors, include stack trace if available
 	if req.Level == "error" && req.Stack != "" {
 		c.logAPIRequest(
 			ctx,
-			slog.LevelError,
+			logger.LogLevelError,
 			"Client error stack trace",
-			"category", req.Category,
-			"stack", req.Stack,
+			logger.String("category", req.Category),
+			logger.String("stack", req.Stack),
 		)
 	}
 
