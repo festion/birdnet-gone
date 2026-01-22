@@ -67,6 +67,12 @@ var (
 )
 
 // StoreInterface abstracts the underlying database implementation and defines the interface for database operations.
+//
+// Migration Note: For detection-specific CRUD operations, prefer using DetectionRepository
+// (see repository.go) which works with domain models (detection.Result) instead of
+// persistence models (Note). The DetectionRepository wraps Interface and handles
+// conversion between domain and persistence layers.
+//
 // Optional methods:
 //   - CheckpointWAL() error - Implemented by stores that support Write-Ahead Logging (e.g., SQLite)
 //     Call via type assertion: if sqliteStore, ok := store.(*SQLiteStore); ok { sqliteStore.CheckpointWAL() }
@@ -92,6 +98,8 @@ type Interface interface {
 	GetNoteReview(noteID string) (*NoteReview, error)
 	SaveNoteReview(review *NoteReview) error
 	GetNoteComments(noteID string) ([]NoteComment, error)
+	// GetNoteResults returns the additional predictions for a note.
+	GetNoteResults(noteID string) ([]Results, error)
 	SaveNoteComment(comment *NoteComment) error
 	UpdateNoteComment(commentID string, entry string) error
 	DeleteNoteComment(commentID string) error
@@ -1093,6 +1101,31 @@ func (ds *DataStore) GetNoteComments(noteID string) ([]NoteComment, error) {
 	}
 
 	return comments, nil
+}
+
+// GetNoteResults returns the additional predictions for a note.
+func (ds *DataStore) GetNoteResults(noteID string) ([]Results, error) {
+	// Parse ID for consistency and MySQL compatibility
+	id, err := strconv.ParseUint(noteID, 10, 32)
+	if err != nil {
+		return nil, errors.New(err).
+			Component("datastore").
+			Category(errors.CategoryValidation).
+			Context("operation", "get_note_results").
+			Context("note_id", noteID).
+			Build()
+	}
+
+	var results []Results
+	if err := ds.DB.Where("note_id = ?", id).Find(&results).Error; err != nil {
+		return nil, errors.New(err).
+			Component("datastore").
+			Category(errors.CategoryDatabase).
+			Context("operation", "get_note_results").
+			Context("note_id", noteID).
+			Build()
+	}
+	return results, nil
 }
 
 // SaveNoteComment saves a new comment for a note
@@ -2171,7 +2204,9 @@ func (ds *DataStore) cacheSunTimes(dateStr string, sunTimes *suncalc.SunEventTim
 
 // saveNoteInTransaction saves a note within a transaction
 func (ds *DataStore) saveNoteInTransaction(tx *gorm.DB, note *Note, txID string, attempt int, txLogger logger.Logger) error {
-	if err := tx.Create(note).Error; err != nil {
+	// Omit Results to prevent GORM auto-save of associations.
+	// Results are saved separately in saveResultsInTransaction for explicit error handling.
+	if err := tx.Omit("Results").Create(note).Error; err != nil {
 		enhancedErr := errors.New(err).
 			Component("datastore").
 			Category(errors.CategoryDatabase).
