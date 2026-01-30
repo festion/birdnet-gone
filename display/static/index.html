@@ -134,6 +134,7 @@
             <button id="mode-btn" class="settings-btn">Change Mode</button>
             <button id="shutdown-btn" class="settings-btn shutdown">Shutdown</button>
             <button id="exit-kiosk-btn" class="settings-btn" style="background-color: #2563eb; color: white;">Exit Kiosk</button>
+            <button id="restart-kiosk-btn" class="settings-btn" style="background-color: #16a34a; color: white;">Return to Kiosk</button>
         </div>
         <div id="swipe-handle"></div>
     </div>
@@ -494,6 +495,13 @@
                 showConfirmModal("Exit kiosk mode and open terminal?", () => {
                     fetch("/exit_kiosk", { method: "POST" });
                     document.body.innerHTML = "<h1>Opening terminal...</h1>";
+                });
+            });
+
+            document.getElementById("restart-kiosk-btn").addEventListener("click", () => {
+                showConfirmModal("Restart kiosk mode?", () => {
+                    fetch("/restart_kiosk", { method: "POST" });
+                    document.body.innerHTML = "<h1>Restarting kiosk mode...</h1>";
                 });
             });
             // Microphone status
