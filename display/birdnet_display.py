@@ -437,6 +437,12 @@ def exit_kiosk():
     os.system("pkill chromium; sudo systemctl stop bird-display; XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 lxterminal &")
     return jsonify({"status": "exiting kiosk"})
 
+@app.route("/restart_kiosk", methods=["POST"])
+def restart_kiosk():
+    print("Restarting kiosk mode...")
+    os.system("pkill chromium; sleep 1; XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 /home/jeremy/birdnet_display/kiosk_launcher.sh &")
+    return jsonify({"status": "restarting kiosk"})
+
 def get_pinned_species():
     """Return list of currently pinned species with time remaining."""
     active_pinned = get_active_pinned_species()

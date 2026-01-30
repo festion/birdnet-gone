@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Relaunch Kiosk
+Comment=Restart the Bird Display in kiosk mode
+Exec=/home/jeremy/birdnet_display/kiosk_launcher.sh
+Icon=chromium
+Terminal=false
+Categories=Utility;
