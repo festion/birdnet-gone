@@ -125,6 +125,9 @@ func (m *FFmpegManager) StartStream(url, transport string, audioChan chan Unifie
 		// Continue with stream start - provides graceful degradation
 	}
 
+	// Initialize filter chain once (needed for FFmpeg streams since ALSA path won't run)
+	initializeFilterChainOnce()
+
 	// Stream already created above
 	m.streams[url] = stream
 
