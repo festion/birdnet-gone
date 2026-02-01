@@ -565,6 +565,8 @@ void setup() {
     Serial.println("  Version 2.2.0 - OTA Support");
     Serial.println("========================================");
 
+    // No antenna switch config - using internal antenna as baseline test
+
     // WiFi
     setupWiFi();
 
