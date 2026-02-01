@@ -18,6 +18,9 @@ var (
 
 	// Monitoring is started separately when we have audioChan
 	monitoringOnce sync.Once
+
+	// Filter chain initialization tracking
+	filterChainOnce sync.Once
 )
 
 // getIntegrationLogger returns the integration logger.
@@ -97,6 +100,23 @@ func registerSoundLevelProcessorIfEnabled(source string, log logger.Logger) erro
 			logger.String("operation", "register_sound_level"))
 	}
 	return nil
+}
+
+// initializeFilterChainOnce ensures the audio filter chain is initialized exactly once.
+// This is needed for FFmpeg/RTSP streams since InitializeFilterChain is only called
+// in the ALSA capture path. Without this, ApplyFilters fails with "filter chain is not initialized".
+func initializeFilterChainOnce() {
+	filterChainOnce.Do(func() {
+		settings := conf.Setting()
+		if err := InitializeFilterChain(settings); err != nil {
+			getIntegrationLogger().Warn("error initializing filter chain for FFmpeg streams",
+				logger.Error(err),
+				logger.String("operation", "initialize_filter_chain"))
+		} else {
+			getIntegrationLogger().Debug("initialized filter chain for FFmpeg streams",
+				logger.String("operation", "initialize_filter_chain"))
+		}
+	})
 }
 
 // getGlobalManager returns the global FFmpeg manager instance.
