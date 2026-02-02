@@ -32,7 +32,7 @@
  *
  * Author: BirdNET-Gone Project
  * License: MIT
- * Version: 2.2.0
+ * Version: 2.3.0
  */
 
 #include <Arduino.h>
@@ -88,12 +88,29 @@ const char* WIFI_PASSWORD = "redflower805";
 #define MAX_CLIENTS         4       // Maximum concurrent streaming clients
 
 // ============================================================================
+// ANTENNA CONFIGURATION - XIAO ESP32-C6 RF Switch (FM8625H)
+// ============================================================================
+
+// RF switch control pins
+#define RF_SWITCH_POWER_PIN  3      // GPIO3 - RF switch power (LOW = enabled)
+#define ANTENNA_SELECT_PIN   14     // GPIO14 - Antenna select (LOW = onboard, HIGH = external)
+
+// Antenna selection: true = external antenna, false = onboard ceramic antenna
+#define USE_EXTERNAL_ANTENNA false
+
+// ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
 
 AsyncWebServer server(HTTP_PORT);
 volatile int activeClients = 0;
 unsigned long totalConnections = 0;
+
+// Antenna state (runtime configurable)
+bool useExternalAntenna = USE_EXTERNAL_ANTENNA;
+
+// Forward declarations
+void selectAntenna(bool external);
 
 // Audio monitoring
 unsigned long lastAudioDebug = 0;
@@ -263,6 +280,9 @@ void handleRoot(AsyncWebServerRequest *request) {
     html += "button{background:#3498db;color:white;border:none;padding:12px 24px;border-radius:5px;cursor:pointer;font-size:16px;margin:10px 5px}";
     html += "button:hover{background:#2980b9}";
     html += ".reboot-button{background:#e74c3c}.reboot-button:hover{background:#c0392b}";
+    html += ".antenna-section{background:#fff3cd;padding:15px;border-radius:5px;margin:20px 0}";
+    html += ".ant-btn{background:#28a745}.ant-btn:hover{background:#218838}";
+    html += ".ant-btn.active{background:#155724;box-shadow:inset 0 2px 4px rgba(0,0,0,0.3)}";
     html += "</style></head><body><div class='container'>";
 
     html += "<h1>BirdNET Audio Streamer</h1>";
@@ -274,6 +294,14 @@ void handleRoot(AsyncWebServerRequest *request) {
     html += "<p><strong>Uptime:</strong> " + String(millis() / 1000) + " seconds</p>";
     html += "<p><strong>Free Heap:</strong> " + String(ESP.getFreeHeap()) + " bytes</p>";
     html += "<p><strong>WiFi RSSI:</strong> " + String(WiFi.RSSI()) + " dBm</p>";
+    html += "</div>";
+
+    // Antenna configuration section
+    html += "<div class='antenna-section'>";
+    html += "<h3 style='margin-top:0'>Antenna Configuration</h3>";
+    html += "<p><strong>Current:</strong> " + String(useExternalAntenna ? "External" : "Onboard (ceramic)") + "</p>";
+    html += "<button class='ant-btn" + String(useExternalAntenna ? "" : " active") + "' onclick=\"window.location='/antenna?type=onboard'\">Onboard</button>";
+    html += "<button class='ant-btn" + String(useExternalAntenna ? " active" : "") + "' onclick=\"window.location='/antenna?type=external'\">External</button>";
     html += "</div>";
 
     html += "<h3>WAV Stream (for browsers):</h3>";
@@ -295,12 +323,26 @@ void handleRoot(AsyncWebServerRequest *request) {
     request->send(200, "text/html", html);
 }
 
+void handleAntenna(AsyncWebServerRequest *request) {
+    if (request->hasParam("type")) {
+        String type = request->getParam("type")->value();
+        if (type == "external") {
+            selectAntenna(true);
+        } else if (type == "onboard") {
+            selectAntenna(false);
+        }
+    }
+    // Redirect back to home page
+    request->redirect("/");
+}
+
 void handleStatus(AsyncWebServerRequest *request) {
     String json = "{";
     json += "\"activeClients\":" + String(activeClients) + ",";
     json += "\"uptime\":" + String(millis() / 1000) + ",";
     json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
     json += "\"wifiRSSI\":" + String(WiFi.RSSI()) + ",";
+    json += "\"antenna\":\"" + String(useExternalAntenna ? "external" : "onboard") + "\",";
     json += "\"sampleRate\":" + String(SAMPLE_RATE) + ",";
     json += "\"bitsPerSample\":16,";
     json += "\"channels\":1";
@@ -456,6 +498,37 @@ void handleStreamRaw(AsyncWebServerRequest *request) {
 }
 
 // ============================================================================
+// ANTENNA FUNCTIONS
+// ============================================================================
+
+void selectAntenna(bool external) {
+    useExternalAntenna = external;
+    if (external) {
+        digitalWrite(ANTENNA_SELECT_PIN, HIGH);
+        Serial.println("[Antenna] Switched to EXTERNAL antenna");
+    } else {
+        digitalWrite(ANTENNA_SELECT_PIN, LOW);
+        Serial.println("[Antenna] Switched to ONBOARD antenna");
+    }
+}
+
+void setupAntenna() {
+    Serial.println("\nConfiguring RF switch and antenna...");
+
+    // Power on the RF switch (GPIO3 LOW enables it)
+    pinMode(RF_SWITCH_POWER_PIN, OUTPUT);
+    digitalWrite(RF_SWITCH_POWER_PIN, LOW);
+    Serial.println("[OK] RF switch powered on (GPIO3 LOW)");
+
+    // Small delay to let RF switch stabilize
+    delay(10);
+
+    // Select antenna based on default setting
+    pinMode(ANTENNA_SELECT_PIN, OUTPUT);
+    selectAntenna(useExternalAntenna);
+}
+
+// ============================================================================
 // WiFi FUNCTIONS
 // ============================================================================
 
@@ -536,6 +609,7 @@ void setupServer() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/status", HTTP_GET, handleStatus);
     server.on("/diag", HTTP_GET, handleDiag);
+    server.on("/antenna", HTTP_GET, handleAntenna);
     server.on("/stream", HTTP_GET, handleStream);
     server.on("/stream_raw", HTTP_GET, handleStreamRaw);
     server.on("/reboot", HTTP_GET, handleReboot);
@@ -562,10 +636,11 @@ void setup() {
     Serial.println("\n\n========================================");
     Serial.println("  BirdNET Async Audio Streamer");
     Serial.println("  XIAO ESP32-C6 + ICS-43434");
-    Serial.println("  Version 2.2.0 - OTA Support");
+    Serial.println("  Version 2.3.0 - Antenna Switching");
     Serial.println("========================================");
 
-    // No antenna switch config - using internal antenna as baseline test
+    // Configure RF switch and antenna BEFORE WiFi
+    setupAntenna();
 
     // WiFi
     setupWiFi();
