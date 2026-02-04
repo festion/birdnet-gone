@@ -7,7 +7,7 @@
 #include "WebUI.h"
 
 // ================== SETTINGS (ESP32 RTSP Mic for BirdNET-Go) ==================
-#define FW_VERSION "1.3.0"
+#define FW_VERSION "1.3.2"
 // Expose FW version as a global C string for WebUI/API
 const char* FW_VERSION_STR = FW_VERSION;
 
@@ -838,13 +838,14 @@ void setup() {
     bootTime = millis(); // Store boot time
     rtpSSRC = (uint32_t)random(1, 0x7FFFFFFF);
 
-    // Enable external antenna (for XIAO ESP32-C6).
-    // NOTE: If you are using a board without the RF switch (or no external antenna), comment out or remove this block.
+    // Configure RF switch for XIAO ESP32-C6 (FM8625H antenna switch)
+    // GPIO3 LOW = RF switch powered on
+    // GPIO14 LOW = onboard ceramic antenna, HIGH = external antenna (U.FL connector)
     pinMode(3, OUTPUT);
     digitalWrite(3, LOW);
     Serial.println("RF switch control enabled (GPIO3 LOW)");
     pinMode(14, OUTPUT);
-    digitalWrite(14, HIGH);
+    digitalWrite(14, HIGH);  // Use external antenna (U.FL connector)
     Serial.println("External antenna selected (GPIO14 HIGH)");
 
     // Load settings from flash
