@@ -393,6 +393,78 @@ def audio_status():
         is_connected = False
     return jsonify({"connected": is_connected})
 
+@app.route('/api/mic/restart', methods=['POST'])
+def restart_microphone():
+    """Restart the ESP32 RTSP microphone by calling its reboot API."""
+    display_config = load_display_config()
+    esp32_ip = display_config.get('esp32_ip', '')
+
+    if not esp32_ip:
+        return jsonify({'status': 'error', 'message': 'ESP32 IP not configured'}), 400
+
+    # First try to clear thermal latch, then reboot
+    try:
+        # Clear thermal latch if present
+        thermal_url = f"http://{esp32_ip}/api/thermal/clear"
+        try:
+            requests.post(thermal_url, timeout=5)
+        except requests.exceptions.RequestException:
+            pass  # Ignore if thermal clear fails
+
+        # Send reboot command
+        reboot_url = f"http://{esp32_ip}/api/action/reboot"
+        response = requests.get(reboot_url, timeout=5)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get('ok', False):
+            return jsonify({'status': 'success', 'message': f'Microphone at {esp32_ip} is restarting'})
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            return jsonify({'status': 'error', 'message': f'Reboot failed: {error_msg}'}), 500
+
+    except requests.exceptions.Timeout:
+        return jsonify({'status': 'error', 'message': f'Timeout connecting to microphone at {esp32_ip}'}), 504
+    except requests.exceptions.ConnectionError:
+        return jsonify({'status': 'error', 'message': f'Cannot connect to microphone at {esp32_ip}'}), 503
+    except requests.exceptions.RequestException as e:
+        return jsonify({'status': 'error', 'message': f'Request failed: {str(e)}'}), 500
+
+@app.route('/api/mic/status', methods=['GET'])
+def get_mic_status():
+    """Get detailed status from the ESP32 RTSP microphone."""
+    display_config = load_display_config()
+    esp32_ip = display_config.get('esp32_ip', '')
+
+    if not esp32_ip:
+        return jsonify({'status': 'error', 'message': 'ESP32 IP not configured', 'connected': False}), 400
+
+    try:
+        # Get main status
+        status_url = f"http://{esp32_ip}/api/status"
+        response = requests.get(status_url, timeout=5)
+        response.raise_for_status()
+        status_data = response.json()
+
+        # Get thermal status
+        thermal_url = f"http://{esp32_ip}/api/thermal"
+        thermal_response = requests.get(thermal_url, timeout=5)
+        thermal_data = thermal_response.json() if thermal_response.ok else {}
+
+        return jsonify({
+            'status': 'success',
+            'connected': True,
+            'streaming': status_data.get('streaming', False),
+            'rtsp_enabled': status_data.get('rtsp_server_enabled', False),
+            'wifi_rssi': status_data.get('wifi_rssi', 0),
+            'uptime': status_data.get('uptime', 'unknown'),
+            'temperature': thermal_data.get('current_c', None),
+            'thermal_limit': thermal_data.get('shutdown_c', None),
+            'thermal_latched': thermal_data.get('latched', False) or thermal_data.get('latched_persist', False)
+        })
+    except requests.exceptions.RequestException:
+        return jsonify({'status': 'error', 'connected': False, 'message': 'Cannot reach microphone'})
+
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     shutdown_func = request.environ.get('werkzeug.server.shutdown')

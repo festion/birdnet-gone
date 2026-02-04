@@ -321,6 +321,25 @@
                     <small>Full RTSP URL for BirdNET-Go audio source</small>
                 </div>
                 <div class="settings-group">
+                    <label>Microphone Status</label>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center;">
+                            <span class="status-indicator disconnected" id="mic-status-indicator"></span>
+                            <span id="mic-status-text">Checking...</span>
+                        </div>
+                        <span id="mic-temp-display" style="color: #64748b; font-size: 0.9em;"></span>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Microphone Control</label>
+                    <div class="system-buttons">
+                        <button class="btn btn-danger" id="restart-mic-btn" onclick="restartMicrophone()">
+                            <span id="restart-mic-text">Restart Mic</span>
+                        </button>
+                    </div>
+                    <small>Clears thermal latch and reboots the ESP32 microphone</small>
+                </div>
+                <div class="settings-group">
                     <label>MediaMTX Status</label>
                     <div style="display: flex; align-items: center;">
                         <span class="status-indicator disconnected" id="mediamtx-status"></span>
@@ -897,6 +916,99 @@
                 }
             }
         }
+
+        async function restartMicrophone() {
+            const btn = document.getElementById('restart-mic-btn');
+            const btnText = document.getElementById('restart-mic-text');
+            const originalText = btnText.textContent;
+
+            btn.disabled = true;
+            btnText.textContent = 'Restarting...';
+
+            try {
+                const response = await fetch('/api/mic/restart', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    alert('✅ ' + result.message);
+                    // Wait a moment then refresh mic status
+                    setTimeout(checkMicStatus, 5000);
+                } else {
+                    alert('❌ ' + result.message);
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = originalText;
+            }
+        }
+
+        async function checkMicStatus() {
+            const indicator = document.getElementById('mic-status-indicator');
+            const statusText = document.getElementById('mic-status-text');
+            const tempDisplay = document.getElementById('mic-temp-display');
+
+            try {
+                const response = await fetch('/api/mic/status');
+                const data = await response.json();
+
+                if (data.connected) {
+                    indicator.classList.remove('disconnected');
+                    indicator.classList.add('connected');
+
+                    if (data.streaming) {
+                        statusText.textContent = 'Streaming';
+                    } else if (data.rtsp_enabled) {
+                        statusText.textContent = 'Ready (not streaming)';
+                    } else {
+                        statusText.textContent = 'RTSP Disabled';
+                        indicator.classList.remove('connected');
+                        indicator.classList.add('disconnected');
+                    }
+
+                    // Show temperature if available
+                    if (data.temperature !== null) {
+                        let tempColor = '#22c55e';  // green
+                        if (data.temperature >= 70) tempColor = '#f59e0b';  // orange
+                        if (data.temperature >= 80) tempColor = '#dc2626';  // red
+                        tempDisplay.innerHTML = `<span style="color: ${tempColor};">${data.temperature}°C</span>`;
+                        if (data.thermal_latched) {
+                            tempDisplay.innerHTML += ' <span style="color: #dc2626;">(THERMAL LATCH)</span>';
+                        }
+                    } else {
+                        tempDisplay.textContent = '';
+                    }
+                } else {
+                    indicator.classList.remove('connected');
+                    indicator.classList.add('disconnected');
+                    statusText.textContent = 'Disconnected';
+                    tempDisplay.textContent = '';
+                }
+            } catch (error) {
+                indicator.classList.remove('connected');
+                indicator.classList.add('disconnected');
+                statusText.textContent = 'Error checking status';
+                tempDisplay.textContent = '';
+            }
+        }
+
+        // Check mic status periodically when settings modal is open
+        let micStatusInterval = null;
+        const origShowSettingsModal = showSettingsModal;
+        showSettingsModal = async function(e) {
+            await origShowSettingsModal(e);
+            checkMicStatus();
+            micStatusInterval = setInterval(checkMicStatus, 10000);
+        };
+        const origHideSettingsModal = hideSettingsModal;
+        hideSettingsModal = function() {
+            if (micStatusInterval) {
+                clearInterval(micStatusInterval);
+                micStatusInterval = null;
+            }
+            origHideSettingsModal();
+        };
     </script>
 </body>
 </html>
