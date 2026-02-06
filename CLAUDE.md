@@ -4,6 +4,10 @@
 
 BirdNET-Go: Go implementation of BirdNET for real-time bird sound identification aimed for non serious birders and home users. Open source project for fun.
 
+## Learnings
+
+@.claude/learnings.md
+
 ## Quick Navigation
 
 - **Frontend**: See `frontend/CLAUDE.md` for Svelte 5, TypeScript, UI
