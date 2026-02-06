@@ -2,7 +2,6 @@
 #include <math.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include "freertos/ringbuf.h"
 #include "WebUI.h"
 
 // External variables and functions from main (.ino) – ESP32 RTSP Mic for BirdNET-Go
@@ -53,8 +52,6 @@ extern bool overheatSensorFault;
 extern float lastTemperatureC;
 extern bool lastTemperatureValid;
 extern bool overheatLatched;
-extern RingbufHandle_t audioRingBuf;
-extern volatile bool httpStreamActive;
 
 // Local helper: snap requested Wi‑Fi TX power (dBm) to nearest supported step
 static float snapWifiTxDbm(float dbm) {
@@ -463,82 +460,6 @@ static void httpSet() {
     apiSendJSON(F("{\"ok\":true}"));
 }
 
-// HTTP audio stream handler — streams raw PCM from ring buffer
-static void httpStream() {
-    if (!audioRingBuf) {
-        web.send(503, "text/plain", "Ring buffer not ready");
-        return;
-    }
-    if (httpStreamActive) {
-        web.send(503, "text/plain", "Stream already active (single client)");
-        return;
-    }
-
-    httpStreamActive = true;
-    WiFiClient client = web.client();
-    client.setNoDelay(true);
-
-    // Send HTTP response headers for raw PCM streaming.
-    // NOTE: audio/L16 per RFC 3551 specifies big-endian (network byte order),
-    // but we send native little-endian PCM. BirdNET-Go reads the raw bytes as
-    // native int16 on its (little-endian) host, so this works in practice.
-    // The jpmurray reference firmware uses the same convention.
-    client.print("HTTP/1.1 200 OK\r\n");
-    client.print("Content-Type: audio/L16; rate=");
-    client.print(currentSampleRate);
-    client.print("; channels=1\r\n");
-    client.print("Cache-Control: no-store\r\n");
-    client.print("Connection: close\r\n\r\n");
-
-    // Safety check: if client disconnected during header writes, clean up now
-    if (!client.connected()) {
-        httpStreamActive = false;
-        client.stop();
-        webui_pushLog("HTTP stream client disconnected during header");
-        return;
-    }
-
-    webui_pushLog("HTTP stream client connected: " + client.remoteIP().toString());
-
-    // Streaming loop — runs until client disconnects
-    while (client.connected()) {
-        size_t itemSize = 0;
-        int16_t* chunk = (int16_t*)xRingbufferReceive(audioRingBuf, &itemSize, pdMS_TO_TICKS(500));
-        if (!chunk) {
-            yield();
-            continue;
-        }
-
-        const uint8_t* p = reinterpret_cast<const uint8_t*>(chunk);
-        size_t remaining = itemSize;
-        while (remaining > 0 && client.connected()) {
-            size_t written = client.write(p, remaining);
-            if (written == 0) { delay(1); }
-            else { p += written; remaining -= written; }
-            yield();
-        }
-
-        vRingbufferReturnItem(audioRingBuf, (void*)chunk);
-        yield();
-    }
-
-    httpStreamActive = false;
-    client.stop();
-    webui_pushLog("HTTP stream client disconnected");
-}
-
-static void httpStreamStatus() {
-    String json = "{";
-    json += "\"http_stream_active\":" + String(httpStreamActive ? "true" : "false");
-    json += ",\"ring_buffer_ready\":" + String(audioRingBuf ? "true" : "false");
-    json += ",\"sample_rate\":" + String(currentSampleRate);
-    json += ",\"format\":\"audio/L16\"";
-    json += ",\"channels\":1";
-    json += ",\"url\":\"/stream\"";
-    json += "}";
-    web.send(200, "application/json", json);
-}
-
 void webui_begin() {
     web.on("/", httpIndex);
     web.on("/api/status", httpStatus);
@@ -553,8 +474,6 @@ void webui_begin() {
     web.on("/api/action/reboot", [](){ webui_pushLog(F("UI action: reboot")); apiSendJSON(F("{\"ok\":true}")); scheduleReboot(false, 600); });
     web.on("/api/action/factory_reset", [](){ webui_pushLog(F("UI action: factory_reset")); apiSendJSON(F("{\"ok\":true}")); scheduleReboot(true, 600); });
     web.on("/api/set", httpSet);
-    web.on("/stream", httpStream);
-    web.on("/api/stream_status", httpStreamStatus);
     web.begin();
 }
 

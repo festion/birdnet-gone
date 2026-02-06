@@ -5,11 +5,15 @@
 
 ---
 
-### BirdNET-Go nightly regression broke RTSP — 2026-02-06
-- **Context:** Updated BirdNET-Go from nightly-20260113 to nightly-20260118
-- **Wrong:** Assumed newer nightly would be stable — it had an upstream RTSP regression (issue #1870)
-- **Right:** Always check GitHub issues before upgrading to nightly builds. Keep the previous binary as a backup at `/usr/local/bin/birdnet-go.<version>-backup`
-- **Applies to:** BirdNET-Go (192.168.1.197), any service using nightly/pre-release builds
+### ESP32 ring buffer refactoring broke RTSP streaming — 2026-02-06
+- **Context:** Added HTTP audio streaming to ESP32 firmware by refactoring I2S→RTP into I2S→ring buffer→RTP/HTTP
+- **Wrong:** Commit `03de8697` broke RTSP — ring buffer consumer (`xRingbufferReceive`) never returned data during RTSP streaming, and first connection even crashed the ESP32. Blamed upstream BirdNET-Go (issue #1870) for days instead of testing our own firmware change
+- **Right:** (1) Always test the ORIGINAL functionality after refactoring. (2) When a popular project "doesn't work", check your own code first. (3) Use raw TCP RTSP handshake tests (Python socket) to isolate protocol issues from application issues. (4) Don't write custom firmware code when upstream works
+- **Applies to:** ESP32 firmware in `festion/birdnet-gone`, any firmware refactoring
+
+### BirdNET-Go nightly builds — keep previous version
+- When upgrading nightlies, keep backups at `/usr/local/bin/birdnet-go.<version>`. The config format differs between stable (v0.6.x) and nightly, so don't try stable rollback without config migration.
+- **Current working combo:** `nightly-20260113` + upstream Sukecz v1.3.0 firmware
 
 ### BirdNET-Go stable vs nightly config format
 - Stable releases (v0.6.x) use an incompatible config format from nightly builds. Don't attempt rollback from nightly to stable without config migration. SSH: `jeremy@192.168.1.197`, service: `birdnet-go-native.service`.
