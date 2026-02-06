@@ -4,6 +4,7 @@
 #include <ArduinoOTA.h>
 #include <Preferences.h>
 #include <math.h>
+#include "freertos/ringbuf.h"
 #include "WebUI.h"
 
 // ================== SETTINGS (ESP32 RTSP Mic for BirdNET-Go) ==================
@@ -61,6 +62,15 @@ int16_t* i2s_16bit_buffer = nullptr;
 unsigned long audioPacketsSent = 0;
 unsigned long lastStatsReset = 0;
 bool rtspServerEnabled = true;
+
+// -- Audio ring buffer (shared by RTSP and HTTP stream consumers)
+#define AUDIO_RB_CAPACITY_BYTES 32768  // 32 KB ring buffer (~340ms at 48kHz mono 16-bit)
+RingbufHandle_t audioRingBuf = nullptr;
+volatile bool httpStreamActive = false;
+TaskHandle_t i2sProducerTaskHandle = nullptr;
+// Separate copy buffer for RTSP consumer — avoids racing with i2sProducerTask
+// over i2s_16bit_buffer, and avoids in-place mutation of ring buffer memory
+static int16_t* rtsp_copy_buffer = nullptr;
 
 // -- Audio parameters (runtime configurable)
 uint32_t currentSampleRate = DEFAULT_SAMPLE_RATE;
@@ -546,12 +556,20 @@ void restartI2S() {
     simplePrintln("Restarting I2S with new parameters...");
     isStreaming = false;
 
+    // Stop the producer task before freeing buffers it uses
+    if (i2sProducerTaskHandle) {
+        vTaskDelete(i2sProducerTaskHandle);
+        i2sProducerTaskHandle = nullptr;
+    }
+
     if (i2s_32bit_buffer) { free(i2s_32bit_buffer); i2s_32bit_buffer = nullptr; }
     if (i2s_16bit_buffer) { free(i2s_16bit_buffer); i2s_16bit_buffer = nullptr; }
+    if (rtsp_copy_buffer) { free(rtsp_copy_buffer); rtsp_copy_buffer = nullptr; }
 
     i2s_32bit_buffer = (int32_t*)malloc(currentBufferSize * sizeof(int32_t));
     i2s_16bit_buffer = (int16_t*)malloc(currentBufferSize * sizeof(int16_t));
-    if (!i2s_32bit_buffer || !i2s_16bit_buffer) {
+    rtsp_copy_buffer = (int16_t*)malloc(currentBufferSize * sizeof(int16_t));
+    if (!i2s_32bit_buffer || !i2s_16bit_buffer || !rtsp_copy_buffer) {
         simplePrintln("FATAL: Memory allocation failed after parameter change!");
         ESP.restart();
     }
@@ -559,6 +577,17 @@ void restartI2S() {
     setup_i2s_driver();
     // Refresh HPF with current parameters
     updateHighpassCoeffs();
+
+    // Recreate the producer task
+    xTaskCreate(
+        i2sProducerTask,       // task function
+        "i2s_producer",        // name
+        4096,                  // stack size
+        nullptr,               // parameter
+        2,                     // priority (above loop() at 1)
+        &i2sProducerTaskHandle
+    );
+
     maxPacketRate = 0;
     minPacketRate = 0xFFFFFFFF;
     simplePrintln("I2S restarted successfully");
@@ -674,23 +703,29 @@ void sendRTPPacket(WiFiClient &client, int16_t* audioData, int numSamples) {
     audioPacketsSent++;
 }
 
-// Audio streaming
-void streamAudio(WiFiClient &client) {
-    if (!isStreaming || !client.connected()) return;
+// I2S producer task — reads mic data, processes audio, writes to ring buffer
+void i2sProducerTask(void* param) {
+    simplePrintln("I2S producer task started");
 
-    size_t bytesRead = 0;
-    esp_err_t result = i2s_read(I2S_NUM_0, i2s_32bit_buffer,
-                                currentBufferSize * sizeof(int32_t),
-                                &bytesRead, 50 / portTICK_PERIOD_MS);
+    while (true) {
+        size_t bytesRead = 0;
+        esp_err_t result = i2s_read(I2S_NUM_0, i2s_32bit_buffer,
+                                    currentBufferSize * sizeof(int32_t),
+                                    &bytesRead, portMAX_DELAY);
 
-    if (result == ESP_OK && bytesRead > 0) {
+        if (result != ESP_OK || bytesRead == 0) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        }
+
         int samplesRead = bytesRead / sizeof(int32_t);
 
-        // If HPF params changed dynamically, recompute
+        // Recompute HPF if params changed
         if (highpassEnabled && (hpfConfigSampleRate != currentSampleRate || hpfConfigCutoff != highpassCutoffHz)) {
             updateHighpassCoeffs();
         }
 
+        // Convert 32-bit → 16-bit with gain, HPF, clipping detection
         bool clipped = false;
         float peakAbs = 0.0f;
         for (int i = 0; i < samplesRead; i++) {
@@ -704,13 +739,12 @@ void streamAudio(WiFiClient &client) {
             if (amplified < -32768.0f) amplified = -32768.0f;
             i2s_16bit_buffer[i] = (int16_t)amplified;
         }
-        // Update metering after processing the block
+
+        // Update metering
         if (peakAbs > 32767.0f) peakAbs = 32767.0f;
         lastPeakAbs16 = (uint16_t)peakAbs;
         audioClippedLastBlock = clipped;
         if (clipped) audioClipCount++;
-
-        // Update peak hold for a short window (~3 s) to match UI polling cadence
         if (lastPeakAbs16 > peakHoldAbs16) {
             peakHoldAbs16 = lastPeakAbs16;
             peakHoldUntilMs = millis() + 3000UL;
@@ -718,8 +752,31 @@ void streamAudio(WiFiClient &client) {
             peakHoldAbs16 = 0;
         }
 
-        sendRTPPacket(client, i2s_16bit_buffer, samplesRead);
+        // Write to ring buffer (non-blocking — drop if full)
+        if (audioRingBuf) {
+            size_t bytes = samplesRead * sizeof(int16_t);
+            xRingbufferSend(audioRingBuf, i2s_16bit_buffer, bytes, 0);
+        }
     }
+}
+
+// RTSP audio streaming — reads processed audio from ring buffer
+void streamAudio(WiFiClient &client) {
+    if (!isStreaming || !client.connected()) return;
+    if (!audioRingBuf || !rtsp_copy_buffer) return;
+
+    size_t itemSize = 0;
+    int16_t* chunk = (int16_t*)xRingbufferReceive(audioRingBuf, &itemSize, pdMS_TO_TICKS(50));
+    if (!chunk || itemSize == 0) return;
+
+    int samplesRead = itemSize / sizeof(int16_t);
+    // Copy to local buffer before returning ring buffer item.
+    // sendRTPPacket() byte-swaps in-place for network byte order,
+    // which would corrupt ring buffer internal memory if done directly.
+    memcpy(rtsp_copy_buffer, chunk, itemSize);
+    vRingbufferReturnItem(audioRingBuf, (void*)chunk);
+
+    sendRTPPacket(client, rtsp_copy_buffer, samplesRead);
 }
 
 // RTSP handling
@@ -854,7 +911,8 @@ void setup() {
     // Allocate buffers with current size
     i2s_32bit_buffer = (int32_t*)malloc(currentBufferSize * sizeof(int32_t));
     i2s_16bit_buffer = (int16_t*)malloc(currentBufferSize * sizeof(int16_t));
-    if (!i2s_32bit_buffer || !i2s_16bit_buffer) {
+    rtsp_copy_buffer = (int16_t*)malloc(currentBufferSize * sizeof(int16_t));
+    if (!i2s_32bit_buffer || !i2s_16bit_buffer || !rtsp_copy_buffer) {
         simplePrintln("FATAL: Memory allocation failed!");
         ESP.restart();
     }
@@ -878,6 +936,22 @@ void setup() {
     setupOTA();
     setup_i2s_driver();
     updateHighpassCoeffs();
+
+    // Create audio ring buffer and start I2S producer task
+    audioRingBuf = xRingbufferCreate(AUDIO_RB_CAPACITY_BYTES, RINGBUF_TYPE_BYTEBUF);
+    if (!audioRingBuf) {
+        simplePrintln("FATAL: Ring buffer allocation failed!");
+        ESP.restart();
+    }
+    xTaskCreate(
+        i2sProducerTask,       // task function
+        "i2s_producer",        // name
+        4096,                  // stack size
+        nullptr,               // parameter
+        2,                     // priority (above loop() at 1)
+        &i2sProducerTaskHandle
+    );
+    simplePrintln("Audio ring buffer created (" + String(AUDIO_RB_CAPACITY_BYTES) + " bytes)");
 
     if (!overheatLatched) {
         rtspServer.begin();
@@ -925,6 +999,7 @@ void setup() {
         simplePrintln("RTSP server paused due to thermal latch. Clear via Web UI before resuming streaming.");
     }
     simplePrintln("Web UI: http://" + WiFi.localIP().toString() + "/");
+    simplePrintln("HTTP stream: http://" + WiFi.localIP().toString() + "/stream");
 }
 
 void loop() {
@@ -989,7 +1064,7 @@ void loop() {
                 lastRTSPActivity = millis();
             }
             processRTSP(rtspClient);
-            if (isStreaming) {
+            if (isStreaming && !httpStreamActive) {
                 streamAudio(rtspClient);
             }
         }
