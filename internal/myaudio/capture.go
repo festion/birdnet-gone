@@ -766,7 +766,11 @@ func captureAudioMalgo(settings *conf.Settings, source captureSource, sourceID s
 	// deviceConfig.Capture.Format = malgo.FormatS16 // Let malgo choose or use default
 	deviceConfig.Capture.Channels = conf.NumChannels
 	deviceConfig.SampleRate = conf.SampleRate
-	deviceConfig.Alsa.NoMMap = 1
+	// NoMMap breaks ALSA loopback devices — miniaudio's read/write backend
+	// never fires the data callback, leaving appl_ptr stuck at 0.
+	if !strings.Contains(strings.ToLower(source.Name), "loopback") {
+		deviceConfig.Alsa.NoMMap = 1
+	}
 	deviceConfig.Capture.DeviceID = source.Pointer
 
 	// Initialize the filter chain

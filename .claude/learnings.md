@@ -19,10 +19,10 @@
 ### BirdNET-Go stable vs nightly config format
 - Stable releases (v0.6.x) use an incompatible config format from nightly builds. Don't attempt rollback from nightly to stable without config migration. SSH: `jeremy@192.168.1.197`, service: `birdnet-go-native.service`.
 
-### nightly-20260113 has RTSP→analysis buffer bug — 2026-02-06
+### nightly-20260113+ has RTSP→analysis buffer bug — 2026-02-06
 - **Context:** Upgraded to nightly-20260113 expecting native RTSP support
 - **Wrong:** Sound levels publish (separate code path via `soundLevelChan`) but `WriteToAnalysisBuffer` never receives data from RTSP streams. Zero detections despite audio flowing.
-- **Right:** Rolled back to `nightly-20251012` which uses malgo/ALSA input. Created `rtsp-audio-bridge.service` to bridge ESP32 RTSP→ALSA loopback.
+- **Update (2026-02-07):** The RTSP pipeline DOES work in nightly-20260118 — confirmed `handleAudioData()` calls `WriteToAnalysisBuffer()` with data. The zero-detections issue was caused by ESP32 thermal shutdown disabling RTSP server (Connection refused), hidden by logger bug #1843.
 - **Applies to:** BirdNET-Go nightly-20260113 and nightly-20260118
 
 ### Sound levels ≠ detections — separate code paths — 2026-02-06
@@ -54,4 +54,19 @@
 - **Validated pattern:** `scp bin/birdnet-go jeremy@192.168.1.197:/tmp/birdnet-go-fork` then SSH to backup, stop, copy, start
 - Backup naming: `/usr/local/bin/birdnet-go.<version-description>` (e.g., `nightly-20260118-vanilla`)
 - MQTT broker may be transiently unreachable during restart — service restart after deploy resolves it
-- **Current deployed version:** `nightly-20260118-33-g03ca7f23` (fork build)
+- **Current deployed version:** `nightly-20260118-35-g9317d8bb` (fork build with debug stderr logging)
+
+### Logger module bug silently drops all [audio.ffmpeg] output — 2026-02-07
+- **Context:** Debugging zero detections — no FFmpeg/RTSP error logs visible at all
+- **Wrong:** Assumed logger was working. Spent hours thinking the pipeline code was silently failing.
+- **Right:** `logger.Global().Module("audio").Module("ffmpeg")` creates a moduleLogger that drops ALL output (Info, Warn, Error). Known upstream issue [#1843](https://github.com/tphakala/birdnet-go/issues/1843). **Workaround:** Use `fmt.Fprintf(os.Stderr, ...)` to bypass the logger for debugging.
+- **Key insight:** When all logs from a module are missing, suspect the logger itself before suspecting the code.
+- **Applies to:** BirdNET-Go nightly-20260118, any module using nested `.Module().Module()` calls
+
+### ESP32 thermal protection disables RTSP silently — 2026-02-07
+- **Context:** ESP32 Sukecz v1.3.0 firmware at 192.168.1.183 hit 95.8°C
+- **Symptom:** RTSP port 8554 refuses connections. ESP32 pingable, web UI works. BirdNET-Go FFmpeg retries every ~30s with "Connection refused" but errors hidden by logger bug.
+- **Diagnosis:** `curl -s http://192.168.1.183/api/status` shows `rtsp_server_enabled: false`. `curl -s http://192.168.1.183/api/thermal` shows `latched_persist: true`.
+- **Fix:** `curl -X POST http://192.168.1.183/api/thermal/clear` re-enables RTSP after cooldown.
+- **Problem:** ESP32 runs at ~95°C continuously and will keep hitting the thermal limit. Needs hardware cooling or higher limit.
+- **Applies to:** ESP32 RTSP mic firmware with thermal protection enabled
