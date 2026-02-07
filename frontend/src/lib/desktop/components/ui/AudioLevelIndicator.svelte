@@ -555,7 +555,7 @@
   });
 </script>
 
-<div class={cn('relative w-10 h-10', className)} role="status">
+<div class={cn('relative size-10 shrink-0 overflow-hidden', className)} role="status">
   <!-- Audio level indicator circle -->
   <button
     bind:this={buttonRef}
@@ -565,7 +565,7 @@
     aria-haspopup="true"
     aria-label={`Audio level for ${selectedSource ? getSourceDisplayName(selectedSource) : 'No source'}`}
   >
-    <svg class="w-full h-full" viewBox="0 0 36 36" aria-hidden="true">
+    <svg class="w-full h-full" viewBox="0 0 36 36" width="40" height="40" aria-hidden="true">
       <!-- Background circle -->
       <path
         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
