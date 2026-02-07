@@ -39,3 +39,19 @@
 - malgo device matching uses `strings.Contains(info.Name(), audioSource)` — use device NAME substring (e.g., `Loopback`), not ALSA PCM name
 - Bridge service: `/etc/systemd/system/rtsp-audio-bridge.service`
 - Current FFmpeg filters: `highpass=f=500:p=2,highpass=f=1000:p=1,volume=-8dB`
+
+### Rebasing fork onto upstream nightly tag — 2026-02-07
+- **Context:** Fork's `main` had 51 commits: 32 fork-specific + merge commit + 17 upstream commits pulled via merge. Needed to rebase onto `nightly-20260118` tag to match production binary.
+- **Approach:** Cherry-pick fork-only commits onto a new branch from the tag, skip merge commit + upstream PR commits + post-merge fixup commits.
+- **Steps:** (1) `git branch backup-main-pre-rebase main` (2) `git checkout -b main-rebased nightly-20260118` (3) Cherry-pick fork commits oldest-first (4) `git branch -m main main-old && git branch -m main-rebased main` (5) `git push origin main --force-with-lease`
+- **Gotcha: `git cherry-pick --abort` reverts ALL commits in a multi-commit sequence**, even already-committed ones. If cherry-picking `A B C D` fails on C, aborting undoes A and B too. Fix: cherry-pick one at a time near conflict points, or note which commits applied before aborting.
+- **Gotcha: auto-generated files (PROJECT_INDEX.md) cause repeated conflicts.** Resolve with `git checkout --theirs <file> && git add <file> && git cherry-pick --continue`.
+- **Gotcha: upstream API refactors cause build failures after cherry-pick.** The fork's `telemetry.go` used `slog` directly but upstream moved to `internal/logger` with custom `LogLevel`/`Field` types. The fork's `settings.go` had a `GetExcludedSpecies` duplicate already in `detections.go`. Fix these post-cherry-pick before building.
+- **Verification:** `git log --oneline TAG..main | wc -l` for count, `git merge-base main TAG` must equal tag hash, `git log | grep "Merge pull request"` should return 0.
+- **Applies to:** Any fork rebase where upstream was merged (not rebased) into the fork
+
+### Deploy fork binary to RPi — 2026-02-07
+- **Validated pattern:** `scp bin/birdnet-go jeremy@192.168.1.197:/tmp/birdnet-go-fork` then SSH to backup, stop, copy, start
+- Backup naming: `/usr/local/bin/birdnet-go.<version-description>` (e.g., `nightly-20260118-vanilla`)
+- MQTT broker may be transiently unreachable during restart — service restart after deploy resolves it
+- **Current deployed version:** `nightly-20260118-33-g03ca7f23` (fork build)
