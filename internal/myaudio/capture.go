@@ -205,6 +205,11 @@ func ListAudioSources() ([]AudioDeviceInfo, error) {
 			continue
 		}
 
+		// Skip non-hardware devices (e.g. ALSA software plugins like lavrate, speexrate, jack)
+		if !isHardwareDevice(decodedID) {
+			continue
+		}
+
 		// Add the device information to the devices slice
 		devices = append(devices, AudioDeviceInfo{
 			Index: i,
