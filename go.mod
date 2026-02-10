@@ -7,7 +7,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/malgo v0.11.24
-	github.com/getsentry/sentry-go v0.41.0
+	github.com/getsentry/sentry-go v0.42.0
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/wav v1.1.0
 	github.com/google/uuid v1.6.0
@@ -16,14 +16,14 @@ require (
 	github.com/k3a/html2text v1.3.0
 	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/labstack/echo/v4 v4.15.0
-	github.com/nicholas-fedor/shoutrrr v0.13.1
+	github.com/nicholas-fedor/shoutrrr v0.13.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/sftp v1.13.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sj14/astral v0.2.2
-	github.com/smallnest/ringbuffer v0.0.0-20250317021400-0da97b586904
+	github.com/smallnest/ringbuffer v0.1.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
@@ -31,11 +31,11 @@ require (
 	github.com/tphakala/go-tflite v0.2.1
 	github.com/tphakala/simd v1.0.22
 	go.uber.org/goleak v1.3.0
-	golang.org/x/crypto v0.47.0
-	golang.org/x/net v0.49.0
-	golang.org/x/term v0.39.0
-	golang.org/x/text v0.33.0
-	google.golang.org/api v0.260.0
+	golang.org/x/crypto v0.48.0
+	golang.org/x/net v0.50.0
+	golang.org/x/term v0.40.0
+	golang.org/x/text v0.34.0
+	google.golang.org/api v0.265.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/sqlite v1.6.0
@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/auth v0.18.0 // indirect
+	cloud.google.com/go/auth v0.18.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -53,10 +53,10 @@ require (
 	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.9 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.16.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -67,12 +67,12 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
-	go.opentelemetry.io/otel v1.38.0 // indirect
-	go.opentelemetry.io/otel/metric v1.38.0 // indirect
-	go.opentelemetry.io/otel/trace v1.38.0 // indirect
+	go.opentelemetry.io/otel v1.39.0 // indirect
+	go.opentelemetry.io/otel/metric v1.39.0 // indirect
+	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 )
 
@@ -113,9 +113,9 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/oauth2 v0.34.0
+	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.41.0
 	golang.org/x/time v0.14.0
 	google.golang.org/protobuf v1.36.11 // indirect
 )
