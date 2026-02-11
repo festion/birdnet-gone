@@ -266,6 +266,20 @@
                     <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
                     <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
                 </div>
+                <div class="settings-group">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="sleep-enabled" checked style="width: 20px; height: 20px;">
+                        Auto Sleep
+                    </label>
+                    <small>Dim screen to minimum when no new detections arrive</small>
+                </div>
+                <div class="settings-group">
+                    <label for="sleep-timeout">Sleep Timeout: <span id="sleep-timeout-label">15 minutes</span></label>
+                    <input type="range" id="sleep-timeout" min="5" max="60" value="15" step="5">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="save-sleep-btn">Save Sleep Settings</button>
+                </div>
             </div>
 
             <!-- Location Tab -->
@@ -417,6 +431,45 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // --- SLEEP/WAKE STATE ---
+            let lastDetectionFingerprint = '';
+            let lastNewDetectionTime = Date.now();
+            let isAsleep = false;
+            let userBrightness = parseInt(localStorage.getItem('userBrightness') || '255');
+            let sleepEnabled = true;
+            let sleepTimeoutMinutes = 15;
+
+            function sleepDisplay() {
+                if (isAsleep) return;
+                isAsleep = true;
+                fetch('/brightness', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({brightness: 15})
+                });
+            }
+
+            function wakeDisplay() {
+                if (!isAsleep) return;
+                isAsleep = false;
+                fetch('/brightness', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({brightness: userBrightness})
+                });
+            }
+
+            async function loadSleepSettings() {
+                try {
+                    const response = await fetch('/api/config/display');
+                    const config = await response.json();
+                    sleepEnabled = config.sleep_enabled !== undefined ? config.sleep_enabled : true;
+                    sleepTimeoutMinutes = config.sleep_timeout_minutes || 15;
+                } catch (error) {
+                    console.error('Error loading sleep settings:', error);
+                }
+            }
+
+            loadSleepSettings();
+
             // --- TAB MANAGEMENT ---
             document.querySelectorAll('.tab-button').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -485,10 +538,51 @@
 
             // Brightness slider
             document.getElementById('brightness-slider').addEventListener('input', e => {
+                const val = parseInt(e.target.value);
+                localStorage.setItem('userBrightness', val);
+                userBrightness = val;
                 fetch('/brightness', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ brightness: e.target.value })
+                    body: JSON.stringify({ brightness: val })
                 });
+            });
+
+            // Restore saved brightness to slider
+            document.getElementById('brightness-slider').value = userBrightness;
+
+            // Sleep timeout slider label
+            document.getElementById('sleep-timeout').addEventListener('input', e => {
+                document.getElementById('sleep-timeout-label').textContent = e.target.value + ' minutes';
+            });
+
+            // Save sleep settings
+            document.getElementById('save-sleep-btn').addEventListener('click', async () => {
+                const enabled = document.getElementById('sleep-enabled').checked;
+                const timeout = parseInt(document.getElementById('sleep-timeout').value);
+                sleepEnabled = enabled;
+                sleepTimeoutMinutes = timeout;
+
+                // If sleep was just disabled and display is asleep, wake it
+                if (!enabled && isAsleep) wakeDisplay();
+
+                try {
+                    const resp = await fetch('/api/config/display');
+                    const config = await resp.json();
+                    config.sleep_enabled = enabled;
+                    config.sleep_timeout_minutes = timeout;
+                    const saveResp = await fetch('/api/config/display', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(config)
+                    });
+                    const result = await saveResp.json();
+                    if (result.status === 'success') {
+                        alert('Sleep settings saved!');
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('Failed to save sleep settings: ' + error.message);
+                }
             });
 
             // Threshold slider display
@@ -608,9 +702,17 @@
             // --- CONFIGURATION MANAGEMENT ---
             async function loadAllSettings() {
                 await loadPinnedSpecies();
+                await loadSleepSettings();
                 await loadLocationSettings();
                 await loadAudioSettings();
                 await loadDetectionSettings();
+                // Update sleep UI controls
+                const sleepToggle = document.getElementById('sleep-enabled');
+                const sleepSlider = document.getElementById('sleep-timeout');
+                const sleepLabel = document.getElementById('sleep-timeout-label');
+                if (sleepToggle) sleepToggle.checked = sleepEnabled;
+                if (sleepSlider) sleepSlider.value = sleepTimeoutMinutes;
+                if (sleepLabel) sleepLabel.textContent = sleepTimeoutMinutes + ' minutes';
             }
 
             async function loadLocationSettings() {
@@ -747,6 +849,19 @@
                     const data = await response.json();
                     for (let i = 0; i < 4; i++) {
                         updateCard(i, data.birds[i] || null);
+                    }
+
+                    // Sleep/wake fingerprint logic
+                    const fingerprint = data.birds.map(b => b.name + '|' + b.time_raw).join(';;');
+                    if (fingerprint !== lastDetectionFingerprint) {
+                        lastDetectionFingerprint = fingerprint;
+                        lastNewDetectionTime = Date.now();
+                        if (isAsleep) wakeDisplay();
+                    } else if (sleepEnabled && !isAsleep) {
+                        const idleMs = Date.now() - lastNewDetectionTime;
+                        if (idleMs >= sleepTimeoutMinutes * 60 * 1000) {
+                            sleepDisplay();
+                        }
                     }
                 } catch (error) {
                     console.error('Error fetching bird data:', error);

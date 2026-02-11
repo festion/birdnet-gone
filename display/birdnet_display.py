@@ -43,7 +43,9 @@ def load_display_config():
             'birdnet_server_url': 'http://localhost:8080',
             'esp32_ip': '192.168.1.211',
             'esp32_port': '8080',
-            'microphone_status_url': 'http://10.42.0.50/api/status'
+            'microphone_status_url': 'http://10.42.0.50/api/status',
+            'sleep_enabled': True,
+            'sleep_timeout_minutes': 15
         }
     try:
         with open(DISPLAY_CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -377,7 +379,8 @@ def index():
 @app.route('/data')
 def data():
     bird_data, api_is_down = get_bird_data()
-    return jsonify({'birds': bird_data, 'api_is_down': api_is_down})
+    latest_time = bird_data[0]['time_raw'] if bird_data and bird_data[0].get('time_raw') else ''
+    return jsonify({'birds': bird_data, 'api_is_down': api_is_down, 'latest_detection_time': latest_time})
 
 @app.route('/audio_status')
 def audio_status():
