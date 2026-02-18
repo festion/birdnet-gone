@@ -8,7 +8,7 @@
 ### BirdNET-Go nightly builds — keep previous version and don't mix with stable
 - When upgrading nightlies, keep backups at `/usr/local/bin/birdnet-go.<version>`.
 - Stable releases (v0.6.x) use an **incompatible config format** from nightly builds. Don't attempt rollback from nightly to stable without config migration.
-- Backups on RPi: `/usr/local/bin/birdnet-go.nightly-20251012`, `/usr/local/bin/birdnet-go.nightly-20260113`
+- Backups on RPi: `/usr/local/bin/birdnet-go.nightly-20251012`, `/usr/local/bin/birdnet-go.nightly-20260113`, `/usr/local/bin/birdnet-go.nightly-20260118-35`
 - SSH: `jeremy@192.168.1.197`, service: `birdnet-go-native.service`
 
 ### Sound levels ≠ detections — separate code paths — 2026-02-06
@@ -27,7 +27,7 @@
 - **Validated pattern:** `scp bin/birdnet-go jeremy@192.168.1.197:/tmp/birdnet-go-fork` then SSH to backup, stop, copy, start
 - Backup naming: `/usr/local/bin/birdnet-go.<version-description>` (e.g., `nightly-20260118-vanilla`)
 - MQTT broker may be transiently unreachable during restart — service restart after deploy resolves it
-- **Current deployed version:** `nightly-20260118-35-g9317d8bb` (fork build with debug stderr logging)
+- **Current deployed version:** `nightly-20260118-47-g936f3159` (fork build with HA discovery fix)
 
 ### Logger module bug silently drops all [audio.ffmpeg] output — 2026-02-07
 - **Context:** Debugging zero detections — no FFmpeg/RTSP error logs visible at all
@@ -42,3 +42,16 @@
 - **Fix:** `sudo raspi-config nonint do_boot_behaviour B4` + reboot. The existing `~/.config/autostart/bird-display-kiosk.desktop` autostart handles launching Chromium with `http://localhost:5000`
 - **Key insight:** The original kiosk uses labwc (Wayland compositor) via Desktop session — switching to Console mode bypasses the desktop environment and its autostart `.desktop` files entirely
 - **Applies to:** BirdNET RPi kiosk display at 192.168.1.197
+
+### MQTT discovery `this.state` fallback breaks HA measurement sensors — 2026-02-17
+- **Context:** HA logged `Value error while updating state` for all BirdNET confidence/sound_level sensors
+- **Wrong:** Value templates used `else this.state` as fallback when `sourceId` didn't match. On first message (or after availability transition), `this.state` is `'unknown'` — violates `state_class: measurement` numeric requirement
+- **Right:** Use `else (this.state if this.state not in ['unknown', 'unavailable'] else none)`. Returning `none` from value_template tells HA to skip the state update entirely
+- **Applies to:** Any MQTT auto-discovery sensor with `state_class: measurement` that filters by source ID
+
+### MQTT discovery source IDs regenerate on restart — stale configs accumulate — 2026-02-17
+- **Context:** After deploying a new binary, HA still showed errors from old sensors
+- **Root cause:** Audio source IDs (e.g., `audio_card_6a7886c1`) are regenerated each time BirdNET starts. Old retained MQTT discovery configs with old source IDs persist on the broker, creating ghost sensors in HA
+- **Fix:** Clear stale retained discovery messages: `mosquitto_pub -h BROKER -u USER -P PASS -t 'homeassistant/sensor/NODE/STALE_TOPIC/config' -r -n` (empty retained message clears the topic)
+- **Prevention:** BirdNET-Go should ideally clean up old discovery configs on startup or use stable source IDs
+- **Applies to:** Any BirdNET-Go deployment where audio sources change between restarts
