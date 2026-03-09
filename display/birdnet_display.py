@@ -222,23 +222,38 @@ def format_seconds_ago(total_seconds):
 def check_image_url_fast(url):
     """Quick check if an image URL is accessible with very short timeout."""
     try:
-        response = requests.head(url, timeout=0.5)
+        response = requests.head(url, timeout=0.5, allow_redirects=True)
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
 
+def fetch_thumbnail_urls(scientific_names, server_ip):
+    """Fetch thumbnail URLs from BirdNET-Go batch endpoint using scientific names."""
+    if not scientific_names:
+        return {}
+    try:
+        params = [('species', name) for name in scientific_names]
+        response = requests.get(
+            f"http://{server_ip}:8080/api/v2/analytics/species/thumbnails",
+            params=params, timeout=3)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return {}
+
 def parse_v2_detection_item(detection, server_ip):
     try:
         name = detection.get('commonName', 'Unknown Species')
+        scientific_name = detection.get('scientificName', '')
         time_raw = f"{detection.get('date', '')} {detection.get('time', '')}".strip()
         confidence_value = int(detection.get('confidence', 0.0) * 100)
-        species_code = detection.get('speciesCode')
-        image_url = f"http://{server_ip}:8080/api/v2/species/{species_code}/thumbnail" if species_code else ""
         is_new_species = detection.get('isNewSpecies', False)
 
         return {
-            "name": name, "time_raw": time_raw, "confidence_value": confidence_value,
-            "image_url": image_url, "copyright": "", "is_new_species": is_new_species
+            "name": name, "scientific_name": scientific_name,
+            "time_raw": time_raw, "confidence_value": confidence_value,
+            "image_url": "", "copyright": "", "is_new_species": is_new_species
         }
     except (AttributeError, TypeError, KeyError) as e:
         print(f"Warning: Could not parse a v2 detection item, skipping. Error: {e}, Data: {detection}")
@@ -324,16 +339,16 @@ def get_bird_data():
         final_list = pinned_birds + unique_unpinned
         final_list = final_list[:4]
 
-        # Check image URLs for only these final 4 birds
+        # Fetch thumbnail URLs from BirdNET-Go batch endpoint
+        sci_names = [b.get('scientific_name', '') for b in final_list if b.get('scientific_name')]
+        thumbnail_urls = fetch_thumbnail_urls(sci_names, server_ip) if sci_names else {}
+
+        # Assign image URLs: batch API first, then local cache fallback
         for bird in final_list:
-            if bird.get('image_url'):
-                if not check_image_url_fast(bird['image_url']):
-                    cached_asset = get_cached_image(bird['name'])
-                    if cached_asset:
-                        bird['image_url'] = cached_asset['image_url']
-                        bird['copyright'] = cached_asset['copyright']
+            sci = bird.get('scientific_name', '')
+            if sci and sci in thumbnail_urls:
+                bird['image_url'] = thumbnail_urls[sci]
             else:
-                # No image URL, use cache
                 cached_asset = get_cached_image(bird['name'])
                 if cached_asset:
                     bird['image_url'] = cached_asset['image_url']
