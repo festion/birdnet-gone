@@ -43,8 +43,9 @@ REFACTOR_CHANGELOG.md
 .serena/
 .pio/
 
-# Watchdog secrets
+# Secrets
 watchdog/.env
+vicohome-bridge/.env
 
 __pycache__/
 *.pyc
