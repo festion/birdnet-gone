@@ -9,7 +9,6 @@
 set -euo pipefail
 
 CLIPS_DIR="/root/birdnet-go-app/data/clips"
-ANALYSIS_LOG="/home/jeremy/logs/analysis-processor.log"
 MAX_INFERENCE_GAP_MINUTES=5  # If no inference for 5 min, something is wrong
 PROCESS_NAME="birdnet-go"
 LOG_FILE="/var/log/birdnet-health-check.log"
@@ -79,32 +78,18 @@ check_stale_audio_fd() {
     return 0
 }
 
-# NEW: Check if inference engine is actually running by looking at analysis-processor.log
+# Check if inference engine is actually running via journald sound level heartbeat.
+# BirdNET-Go publishes sound level data to MQTT every ~30s when healthy.
+# If no publications in 5 minutes, inference is stalled.
 check_inference_activity() {
-    if [[ ! -f "$ANALYSIS_LOG" ]]; then
-        log "WARNING: Analysis processor log not found: $ANALYSIS_LOG"
-        return 1
-    fi
+    local recent=$(journalctl -u "$SERVICE_NAME" --since "${MAX_INFERENCE_GAP_MINUTES} min ago" --no-pager 2>/dev/null \
+        | grep -c "Published sound level data" || echo 0)
 
-    # Look for recent "Detection processing results" entries
-    local recent_inference=$(find "$ANALYSIS_LOG" -mmin -${MAX_INFERENCE_GAP_MINUTES} 2>/dev/null | wc -l)
-    
-    if [[ $recent_inference -eq 0 ]]; then
-        log "WARNING: Analysis log not updated in ${MAX_INFERENCE_GAP_MINUTES} minutes"
-        # Double-check by looking at actual log content
-        local last_entry=$(tail -1 "$ANALYSIS_LOG" 2>/dev/null | grep -o '"time":"[^"]*"' | head -1)
-        log "WARNING: Last log entry timestamp: $last_entry"
-        return 1
-    fi
-
-    # Check if we're seeing inference results (not just startup messages)
-    local inference_count=$(tail -20 "$ANALYSIS_LOG" 2>/dev/null | grep -c "process_detections_summary" || echo 0)
-    
-    if [[ $inference_count -gt 0 ]]; then
-        log "INFO: Inference engine active ($inference_count recent processing cycles)"
+    if [[ $recent -gt 0 ]]; then
+        log "INFO: Inference engine active ($recent sound level publications in last ${MAX_INFERENCE_GAP_MINUTES} min)"
         return 0
     else
-        log "WARNING: No recent inference activity in log"
+        log "WARNING: No sound level publications in last ${MAX_INFERENCE_GAP_MINUTES} minutes"
         return 1
     fi
 }
