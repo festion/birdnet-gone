@@ -3,3 +3,4 @@ beautifulsoup4
 Flask
 qrcode[pil]
 Pillow
+PyYAML

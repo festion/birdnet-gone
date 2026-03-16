@@ -45,3 +45,10 @@ REFACTOR_CHANGELOG.md
 
 # Watchdog secrets
 watchdog/.env
+
+__pycache__/
+*.pyc
+*_enhanced.*
+# 3D print files (large binaries)
+*.3mf
+*.step
