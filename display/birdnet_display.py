@@ -520,7 +520,6 @@ def poweroff_system():
     os.system('sudo poweroff')
     return jsonify({'status': 'shutting down'})
 
-@app.route('/api/pinned_species')
 @app.route("/exit_kiosk", methods=["POST"])
 def exit_kiosk():
     print("Exiting kiosk mode and opening terminal...")
@@ -533,6 +532,7 @@ def restart_kiosk():
     os.system("pkill chromium; sleep 1; XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 /home/jeremy/birdnet_display/kiosk_launcher.sh &")
     return jsonify({"status": "restarting kiosk"})
 
+@app.route('/api/pinned_species')
 def get_pinned_species():
     """Return list of currently pinned species with time remaining."""
     active_pinned = get_active_pinned_species()
