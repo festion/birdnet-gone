@@ -42,3 +42,6 @@ REFACTOR_CHANGELOG.md
 *_original.*
 .serena/
 .pio/
+
+# Watchdog secrets
+watchdog/.env

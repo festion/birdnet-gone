@@ -2,20 +2,22 @@
 """BirdNET Audio Watchdog — detects BOYA mic desync via silence monitoring."""
 
 import json
+import os
+import sys
 import time
 import logging
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 import requests
 
-# --- Configuration ---
-MQTT_BROKER = "192.168.1.148"
-MQTT_PORT = 1883
-MQTT_USER = "birdnet"
-MQTT_PASS = "secret"
-MQTT_TOPIC = "birdnet/soundlevel"
+# --- Configuration (from environment) ---
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "localhost")
+MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USER = os.environ.get("MQTT_USER", "")
+MQTT_PASS = os.environ.get("MQTT_PASS", "")
+MQTT_TOPIC = os.environ.get("MQTT_TOPIC", "birdnet/soundlevel")
 
-NOTIFY_URL = "http://192.168.1.142:1880/notify"
+NOTIFY_URL = os.environ.get("NOTIFY_URL", "")
 
 # Bird-relevant frequency bands (1-8 kHz) — keys in the soundlevel payload
 BIRD_BANDS = ["1.0_kHz", "1.2_kHz", "1.6_kHz", "2.0_kHz", "2.5_kHz",
@@ -45,6 +47,13 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log = logging.getLogger("birdnet-watchdog")
+
+if not MQTT_PASS:
+    log.error("MQTT_PASS environment variable is required.")
+    log.error("Copy watchdog/.env.example to watchdog/.env and fill in values.")
+    sys.exit(1)
+if not NOTIFY_URL:
+    log.warning("NOTIFY_URL not set — alerts will be disabled")
 
 # --- State ---
 silence_start = None
