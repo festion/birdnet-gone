@@ -91,7 +91,8 @@ def send_alert():
             "title": "BirdNET Mic Desync",
             "message": "BOYA Magic mic appears desynced — zero audio for 30+ minutes. Manual resync needed.",
             "category": "system",
-            "criticality": "high"
+            "criticality": "high",
+            "alexa": False
         }
         resp = requests.post(NOTIFY_URL, json=payload, timeout=10)
         if resp.status_code == 200:
