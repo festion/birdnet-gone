@@ -172,17 +172,26 @@ EOF
     sudo systemctl start bird-display.service
     echo -e "${GREEN}✅ Systemd service created and enabled.${NC}"
 
-    # 9.3: Configure desktop autostart using the more robust .desktop file method
+    # 9.3: Configure display rotation (180° for inverted DSI mounting)
+    echo -e "\n${YELLOW}Configuring display rotation...${NC}"
+    LABWC_DIR="$HOME/.config/labwc"
+    mkdir -p "$LABWC_DIR"
+    cat > "$LABWC_DIR/autostart" << EOF
+wlr-randr --output DSI-1 --transform 180
+EOF
+    echo -e "${GREEN}  - Display rotation (180°) configured via labwc autostart.${NC}"
+
+    # 9.4: Configure desktop autostart using the more robust .desktop file method
     echo -e "\n${YELLOW}Configuring desktop autostart for kiosk mode...${NC}"
-    
+
     # Create the launcher script with a delay
     LAUNCHER_SCRIPT="$INSTALL_DIR/kiosk_launcher.sh"
     cat > "$LAUNCHER_SCRIPT" << EOF
 #!/bin/bash
 # Add a delay to allow the desktop and network to fully initialize
 sleep 15
-# Launch Chromium
-/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:5000
+# Launch Chromium with Wayland and disable keyring prompt
+/usr/bin/chromium --ozone-platform=wayland --password-store=basic --noerrdialogs --disable-infobars --kiosk http://localhost:5000
 EOF
     chmod +x "$LAUNCHER_SCRIPT"
     echo -e "${GREEN}  - Created kiosk launcher script.${NC}"
