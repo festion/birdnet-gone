@@ -409,3 +409,27 @@ func (p *Publisher) RemoveDiscovery(ctx context.Context, sources []datastore.Aud
 
 	return nil
 }
+
+// RemoveSourceDiscovery publishes empty payloads to remove discovery for specific sources.
+// Used to clean up stale sources that no longer exist.
+func (p *Publisher) RemoveSourceDiscovery(ctx context.Context, sources []datastore.AudioSource) error {
+	log := GetLogger()
+	nodeID := SanitizeID(p.config.NodeID)
+
+	for _, source := range sources {
+		sourceID := getSourceID(source)
+		log.Info("Removing stale discovery for source",
+			logger.String("source_id", sourceID))
+
+		for _, sensorType := range AllSensorTypes {
+			topic := p.getSensorTopic(nodeID, sourceID, sensorType)
+			if err := p.client.PublishWithRetain(ctx, topic, "", true); err != nil {
+				log.Warn("Failed to remove stale sensor discovery",
+					logger.String("topic", topic),
+					logger.Error(err))
+			}
+		}
+	}
+
+	return nil
+}

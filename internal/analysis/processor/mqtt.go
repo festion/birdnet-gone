@@ -4,6 +4,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tphakala/birdnet-go/internal/conf"
@@ -18,6 +19,13 @@ const (
 	mqttConnectionTimeout = 30 * time.Second
 	// discoveryPublishTimeout is the timeout for publishing discovery messages
 	discoveryPublishTimeout = 30 * time.Second
+)
+
+// lastPublishedSources tracks source IDs from the last discovery publish.
+// Used to detect and clean up sources that no longer exist on reconnect.
+var (
+	lastPublishedSourcesMu sync.Mutex
+	lastPublishedSources   []datastore.AudioSource
 )
 
 // GetMQTTClient safely returns the current MQTT client
@@ -134,6 +142,7 @@ func (p *Processor) registerHomeAssistantDiscovery(client mqtt.Client, settings 
 // publishHomeAssistantDiscovery publishes Home Assistant discovery messages.
 // This is the shared implementation used by both the OnConnect handler and manual trigger.
 func (p *Processor) publishHomeAssistantDiscovery(ctx context.Context, client mqtt.Client, settings *conf.Settings) error {
+	log := GetLogger()
 	haSettings := settings.Realtime.MQTT.HomeAssistant
 	discoveryConfig := mqtt.DiscoveryConfig{
 		DiscoveryPrefix: haSettings.DiscoveryPrefix,
@@ -145,13 +154,60 @@ func (p *Processor) publishHomeAssistantDiscovery(ctx context.Context, client mq
 
 	sources := p.getAudioSourcesForDiscovery()
 	if len(sources) == 0 {
-		GetLogger().Info("No audio sources registered yet, skipping Home Assistant discovery")
+		log.Info("No audio sources registered yet, skipping Home Assistant discovery")
 		return nil
 	}
 
 	publisher := mqtt.NewDiscoveryPublisher(client, &discoveryConfig)
 
-	return publisher.PublishDiscovery(ctx, sources, settings)
+	// Clean up stale sources from previous publish
+	staleSources := findStaleSources(sources)
+	if len(staleSources) > 0 {
+		log.Info("Cleaning up stale discovery sources",
+			logger.Int("stale_count", len(staleSources)))
+		if err := publisher.RemoveSourceDiscovery(ctx, staleSources); err != nil {
+			log.Warn("Failed to remove some stale discovery sources", logger.Error(err))
+		}
+	}
+
+	// Publish discovery for current sources
+	if err := publisher.PublishDiscovery(ctx, sources, settings); err != nil {
+		return err
+	}
+
+	// Track what we published for next comparison
+	lastPublishedSourcesMu.Lock()
+	lastPublishedSources = sources
+	lastPublishedSourcesMu.Unlock()
+
+	return nil
+}
+
+// findStaleSources returns sources from the last publish that are not in the current list.
+func findStaleSources(currentSources []datastore.AudioSource) []datastore.AudioSource {
+	lastPublishedSourcesMu.Lock()
+	previous := lastPublishedSources
+	lastPublishedSourcesMu.Unlock()
+
+	if len(previous) == 0 {
+		return nil
+	}
+
+	// Build set of current source IDs
+	currentIDs := make(map[string]bool, len(currentSources))
+	for _, src := range currentSources {
+		currentIDs[src.ID] = true
+	}
+
+	// Find sources in previous that aren't in current
+	stale := make([]datastore.AudioSource, 0)
+	for _, src := range previous {
+		if !currentIDs[src.ID] {
+			stale = append(stale, src)
+		}
+	}
+
+	return stale
 }
 
 // TriggerHomeAssistantDiscovery manually triggers Home Assistant discovery messages.
