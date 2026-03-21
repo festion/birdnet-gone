@@ -143,8 +143,13 @@ func (p *Processor) publishHomeAssistantDiscovery(ctx context.Context, client mq
 		Version:         settings.Version,
 	}
 
-	publisher := mqtt.NewDiscoveryPublisher(client, &discoveryConfig)
 	sources := p.getAudioSourcesForDiscovery()
+	if len(sources) == 0 {
+		GetLogger().Info("No audio sources registered yet, skipping Home Assistant discovery")
+		return nil
+	}
+
+	publisher := mqtt.NewDiscoveryPublisher(client, &discoveryConfig)
 
 	return publisher.PublishDiscovery(ctx, sources, settings)
 }
@@ -199,14 +204,6 @@ func (p *Processor) getAudioSourcesForDiscovery() []datastore.AudioSource {
 			ID:          src.ID,
 			SafeString:  src.SafeString,
 			DisplayName: src.DisplayName,
-		})
-	}
-
-	// If no sources registered yet, create a default source
-	if len(sources) == 0 {
-		sources = append(sources, datastore.AudioSource{
-			ID:          "default",
-			DisplayName: "Default",
 		})
 	}
 
