@@ -124,7 +124,7 @@ type HourlyWeather struct {
 type ImageCache struct {
 	ID             uint      `gorm:"primaryKey"`
 	ProviderName   string    `gorm:"index:idx_imagecache_provider_species,unique;not null;default:wikimedia"` // Name of the provider (e.g., "wikimedia", "flickr")
-	ScientificName string    `gorm:"index:idx_imagecache_provider_species,unique;not null"`                   // Scientific name of the species
+	ScientificName string    `gorm:"index:idx_imagecache_provider_species,unique;default:''"`                 // Scientific name of the species
 	SourceProvider string    `gorm:"not null;default:wikimedia"`                                              // The actual provider that supplied the image
 	URL            string    // The URL of the image
 	LicenseName    string    // The name of the license for the image
@@ -164,8 +164,8 @@ type DetectionRecord struct {
 // users experience a sudden drop in detections after restart when learned thresholds are lost.
 type DynamicThreshold struct {
 	ID             uint      `gorm:"primaryKey"`
-	SpeciesName    string    `gorm:"uniqueIndex;not null;size:200"` // Common name (lowercase)
-	ScientificName string    `gorm:"size:200"`                      // Scientific name for thumbnails
+	SpeciesName    string    `gorm:"uniqueIndex;size:200;default:''"` // Common name (lowercase)
+	ScientificName string    `gorm:"size:200;default:''"`             // Scientific name for thumbnails
 	Level          int       `gorm:"not null;default:0"`            // Adjustment level (0-3)
 	CurrentValue   float64   `gorm:"not null"`                      // Current threshold value
 	BaseThreshold  float64   `gorm:"not null"`                      // Original base threshold for reference
@@ -182,7 +182,7 @@ type DynamicThreshold struct {
 // This enables the frontend to display a timeline of threshold adjustments per species.
 type ThresholdEvent struct {
 	ID            uint      `gorm:"primaryKey"`
-	SpeciesName   string    `gorm:"index;not null;size:200"` // Common name (lowercase)
+	SpeciesName   string    `gorm:"index;size:200;default:''"` // Common name (lowercase)
 	PreviousLevel int       `gorm:"not null"`                // Level before change
 	NewLevel      int       `gorm:"not null"`                // Level after change
 	PreviousValue float64   `gorm:"not null"`                // Threshold value before change
@@ -197,7 +197,7 @@ type ThresholdEvent struct {
 // Resolves BG-17: Species tracker loses state on restart - causes false "New Species" notifications
 type NotificationHistory struct {
 	ID               uint      `gorm:"primaryKey"`
-	ScientificName   string    `gorm:"index:idx_notification_history_species_type,unique;not null;size:200"`                    // Scientific name of the species
+	ScientificName   string    `gorm:"index:idx_notification_history_species_type,unique;size:200;default:''"`                 // Scientific name of the species
 	NotificationType string    `gorm:"index:idx_notification_history_species_type,unique;not null;size:50;default:new_species"` // Type: "new_species", "yearly", "seasonal"
 	LastSent         time.Time `gorm:"index;not null"`                                                                          // When notification was last sent
 	ExpiresAt        time.Time `gorm:"index;not null"`                                                                          // When this record expires (2x suppression window)
