@@ -3,6 +3,7 @@ package myaudio
 
 import (
 	"fmt"
+	"hash/fnv"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -10,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/tphakala/birdnet-go/internal/errors"
 	"github.com/tphakala/birdnet-go/internal/logger"
 	"github.com/tphakala/birdnet-go/internal/privacy"
@@ -127,7 +127,7 @@ func (r *AudioSourceRegistry) RegisterSource(connectionString string, config Sou
 
 	// Auto-generate ID if not provided
 	if source.ID == "" {
-		source.ID = r.generateID(config.Type)
+		source.ID = r.generateID(config.Type, connectionString)
 	}
 
 	// Auto-generate display name if not provided
@@ -811,23 +811,14 @@ func (r *AudioSourceRegistry) sanitizeConnectionString(conn string, sourceType S
 	}
 }
 
-// generateID generates a new unique source ID using UUID
+// generateID generates a deterministic source ID from the connection string.
+// Uses a hash of the connection string so the same device always gets the same ID
+// across restarts, preventing orphaned MQTT discovery entities.
 // IMPORTANT: This method is not thread-safe and must be called with r.mu held
-func (r *AudioSourceRegistry) generateID(sourceType SourceType) string {
-	// Generate UUID with error handling
-	u, err := uuid.NewRandom()
-	if err != nil {
-		// Fallback to timestamp-based ID if UUID generation fails
-		// This is extremely rare but provides a safety net
-		r.logger.Error("Failed to generate UUID, using timestamp fallback",
-			logger.Error(err),
-			logger.String("source_type", string(sourceType)))
-		// Use nanosecond timestamp for uniqueness
-		id := fmt.Sprintf("%d", time.Now().UnixNano())[:8]
-		return fmt.Sprintf("%s_%s", sourceType, id)
-	}
-	// Take first 8 characters for brevity
-	id := u.String()[:8]
+func (r *AudioSourceRegistry) generateID(sourceType SourceType, connectionString string) string {
+	h := fnv.New32a()
+	h.Write([]byte(connectionString))
+	id := fmt.Sprintf("%08x", h.Sum32())
 	return fmt.Sprintf("%s_%s", sourceType, id)
 }
 
