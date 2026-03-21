@@ -409,6 +409,12 @@
                     <p><strong>⚠️ System Control</strong><br>These actions will restart or shutdown the system immediately.</p>
                 </div>
                 <div class="settings-group">
+                <div class="settings-group">
+                    <label>Kiosk Mode</label>
+                    <div class="system-buttons">
+                        <button id="exit-desktop-btn" class="btn btn-secondary" style="background-color: #2563eb; color: white;">Exit to Desktop</button>
+                    </div>
+                </div>
                     <label>Power Options</label>
                     <div class="system-buttons">
                         <button id="restart-btn" class="btn btn-danger">Restart System</button>
@@ -613,6 +619,12 @@
                 });
             });
 
+            document.getElementById("exit-desktop-btn").addEventListener("click", () => {
+                showConfirmModal("Exit kiosk and return to desktop?", () => {
+                    fetch("/exit_kiosk", { method: "POST" });
+                    document.body.innerHTML = "<h1>Returning to desktop...</h1>";
+                });
+            });
             document.getElementById("exit-kiosk-btn").addEventListener("click", () => {
                 showConfirmModal("Exit kiosk mode and open terminal?", () => {
                     fetch("/exit_kiosk", { method: "POST" });
