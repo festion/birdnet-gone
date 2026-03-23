@@ -368,10 +368,17 @@ def get_bird_data():
         sci_names = [b.get('scientific_name', '') for b in final_list if b.get('scientific_name')]
         thumbnail_urls = fetch_thumbnail_urls(sci_names, server_ip) if sci_names else {}
 
-        # Assign image URLs: batch API first, then local cache fallback
+        # Load camera detections for image overlay
+        camera_images = load_camera_detections()
+
+        # Assign image URLs: camera still first, then API thumbnail, then local cache
         for bird in final_list:
+            camera_url = camera_images.get(bird['name'].lower())
             sci = bird.get('scientific_name', '')
-            if sci and sci in thumbnail_urls:
+            if camera_url:
+                bird['image_url'] = camera_url
+                bird['copyright'] = ""
+            elif sci and sci in thumbnail_urls:
                 bird['image_url'] = thumbnail_urls[sci]
             else:
                 cached_asset = get_cached_image(bird['name'])
