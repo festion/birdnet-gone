@@ -1,26 +1,32 @@
 # Project Index: birdnet-gone
 
 ## 1. Core Purpose
-
-This project, BirdNET-Go, is a comprehensive system for real-time bird sound identification. It captures audio, analyzes it using the BirdNET machine learning model, and provides a web-based frontend for users to view detections. The system is designed for deployment on various platforms, including single-board computers (like Raspberry Pi), servers via Docker/Podman, and custom hardware firmware.
+The `birdnet-gone` project appears to be a bird sound analysis and detection system, likely capable of real-time processing and display of bird observations. It integrates a backend written in Go with a web-based frontend and potentially includes components for embedded systems or local displays.
 
 ## 2. Architecture
-
-The application follows a client-server architecture. The core logic is written in Go (`main.go`, `internal/`) and acts as the backend server. It handles audio processing, BirdNET analysis, and serves a Svelte-based web interface (`frontend/`). The system is containerized using Docker and Podman for easy deployment. It also includes firmware for ESP32 devices, suggesting capabilities for custom hardware microphone clients. For a detailed breakdown, see [ARCHITECTURE.md](ARCHITECTURE.md).
+The project follows a modular architecture:
+- **Go Backend**: The core application logic is implemented in Go, with `main.go` as the entry point and various modules organized under `cmd/` (CLI commands) and `internal/` (internal packages for analysis, API, data storage, etc.).
+- **Frontend**: A web-based user interface is developed using JavaScript/TypeScript (Svelte/Vite based on `frontend/package.json`, `frontend/svelte.config.js`, `frontend/vite.config.js`).
+- **Display Module**: A Python-based display system (`display/`) likely handles local visualization of analysis results.
+- **Containerization**: Docker and Podman configurations (`Docker/`, `Podman/`, `Dockerfile`, `docker-compose.yml`) are used for deployment and environment setup.
+- **Firmware**: The `firmware/` directory suggests integration with embedded devices (e.g., ESP32 for RTSP or keepalive functions).
+- **CLI**: The `cmd/` directory indicates a command-line interface for various functionalities.
 
 ## 3. Key Files
-
--   **`main.go`**: The main entry point for the Go backend application.
--   **`go.mod`**: Defines the Go module and its dependencies.
--   **`cmd/`**: Contains the command-line interface logic for different application sub-commands.
--   **`internal/`**: Contains the core application logic, separated into packages for different functionalities like audio processing (`myaudio`), BirdNET analysis (`birdnet`), and API services (`api`).
--   **`frontend/`**: The Svelte-based web frontend, including its source code (`src/`) and build configuration (`vite.config.js`).
--   **`Dockerfile` & `docker-compose.yml`**: Files for building and deploying the application using Docker.
--   **`Podman/`**: Contains configurations for running the application with Podman.
--   **`firmware/`**: Contains firmware for ESP32 devices, likely for dedicated audio capture hardware.
--   **`ARCHITECTURE.md`**: Provides a detailed overview of the project's architecture.
+- `main.go`: Main entry point for the Go application.
+- `go.mod`: Go module definition, managing Go dependencies.
+- `frontend/index.html`: Main HTML file for the web frontend.
+- `frontend/package.json`: Manages frontend dependencies and scripts.
+- `display/birdnet_display.py`: Script for the birdnet display system.
+- `Dockerfile`: Defines the Docker image for the application.
+- `docker-compose.yml`: Orchestrates multi-container Docker applications.
+- `ARCHITECTURE.md`: Provides architectural overview of the project.
+- `README.md`: General project information and setup instructions.
+- `internal/birdnet/`: Contains core BirdNET analysis logic.
+- `cmd/root.go`: Defines the root command for the CLI.
 
 ## 4. Dependencies
-
--   **Backend (Go)**: Dependencies are managed in `go.mod`. Key libraries include frameworks for web servers, audio processing, and database interaction.
--   **Frontend (JavaScript/TypeScript)**: Dependencies are managed in `frontend/package.json`. The frontend is built with Svelte and Vite. It includes various libraries for UI components, API requests, and data visualization.
+- **Go**: Dependencies are managed via `go.mod` and `go.sum`.
+- **Frontend (JavaScript/TypeScript)**: Dependencies are managed via `frontend/package.json` and `frontend/package-lock.json`.
+- **Python**: Dependencies for the display module are in `display/requirements.txt`, and for the VicoHome bridge in `vicohome-bridge/requirements.txt`.
+- **Docker/Podman**: Utilizes Docker/Podman for containerization, as defined in `Dockerfile`, `docker-compose.yml`, `Podman/podman-compose.yml`.
