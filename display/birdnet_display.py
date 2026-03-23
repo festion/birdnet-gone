@@ -26,6 +26,7 @@ PROXIES = {"http": None, "https": None}
 SERVER_PORT = 5000
 PINNED_SPECIES_FILE = "pinned_species.json"
 PINNED_DURATION_HOURS = 24
+VICOHOME_DETECTIONS_FILE = "/home/jeremy/vicohome-bridge/latest_detections.json"
 
 # Configuration file paths
 BIRDNET_CONFIG_PATH = "/root/birdnet-go-app/config/config.yaml"
@@ -258,6 +259,30 @@ def parse_v2_detection_item(detection, server_ip):
     except (AttributeError, TypeError, KeyError) as e:
         print(f"Warning: Could not parse a v2 detection item, skipping. Error: {e}, Data: {detection}")
         return None
+
+def load_camera_detections(filepath=None):
+    """Load VicoHome camera detections as a dict of lowercase common name -> image URL.
+
+    Returns empty dict if file is missing or malformed (graceful degradation).
+    First entry per species wins (latest detection, since file is sorted newest-first).
+    """
+    if filepath is None:
+        filepath = VICOHOME_DETECTIONS_FILE
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            detections = json.load(f)
+        if not isinstance(detections, list):
+            return {}
+        result = {}
+        for entry in detections:
+            name = entry.get("name", "").strip().lower()
+            image_url = entry.get("image_url", "").strip()
+            if name and image_url and name not in result:
+                result[name] = image_url
+        return result
+    except (IOError, json.JSONDecodeError, TypeError):
+        return {}
+
 
 # --- Core Data Fetching Logic ---
 def get_cached_image(species_name):
