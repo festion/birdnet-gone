@@ -49,6 +49,36 @@
 - **Right:** Use `else (this.state if this.state not in ['unknown', 'unavailable'] else none)`. Returning `none` from value_template tells HA to skip the state update entirely
 - **Applies to:** Any MQTT auto-discovery sensor with `state_class: measurement` that filters by source ID
 
+### Event bus `events_received=0` is normal — only new species trigger events — 2026-03-25
+- **Context:** Morning briefing showed `events_received=0` for 3.5+ hours. Assumed BOYA wireless desync (zero detections). Actually, detections were being stored to the DB the whole time.
+- **Wrong:** Treating `events_received=0` as evidence of no detections / mic failure. Rebooted Pi unnecessarily.
+- **Right:** `events_received` only counts events published to the event bus. **Only new species detections** publish events (via `publishNewSpeciesDetectionEvent()` in `actions.go:637`). All previously-seen species are saved to the database but never touch the event bus. Zero events is normal when all detected species are familiar.
+- **Verification:** Use `/api/v2/analytics/species/summary` (checks DB aggregates) instead of event bus metrics to confirm detections are happening. The `/api/v2/detections` endpoint may also have query parameter quirks — species summary is more reliable for a quick health check.
+- **Applies to:** BirdNET-Go briefing/monitoring, any future zero-detection investigation
+
+### BOYA desync recovery requires USB receiver reset, not just transmitter power cycle — 2026-03-25
+- **Context:** BOYA wireless desync (zero-amplitude audio, -200 dB). Physical transmitter power cycle + BirdNET service restart did NOT fix it. Watchdog continued reporting silence.
+- **Wrong:** Only power cycling the transmitter and restarting BirdNET. The USB receiver holds a stale audio stream.
+- **Right:** Software USB reset via unbind/rebind, then restart BirdNET:
+  ```bash
+  sudo systemctl stop birdnet-go-native.service
+  echo '1-1.2' | sudo tee /sys/bus/usb/drivers/usb/unbind
+  sleep 3
+  echo '1-1.2' | sudo tee /sys/bus/usb/drivers/usb/bind
+  sleep 2
+  sudo systemctl start birdnet-go-native.service
+  ```
+  The USB port `1-1.2` is the BOYA receiver on the Pi. Unbind forces the kernel to drop the audio device; rebind triggers full re-enumeration. BOYA re-enumerates as card 2.
+- **Detection:** Watchdog `mean=-200.0 dB` is the reliable indicator. `events_received=0` is NOT (see separate learning).
+- **Applies to:** Any BOYA desync where transmitter power cycle alone doesn't resolve
+
+### Range filter threshold is the highest-impact tuning lever — 2026-03-25
+- **Context:** 1,848 detections in 4 days, 34 species, many questionable for north TX. `rangefilter.threshold` was 0.05 (5% occurrence probability — too loose).
+- **Wrong:** Only adjusting per-species thresholds and global confidence. Leaves the candidate species pool wide open.
+- **Right:** Tighten `rangefilter.threshold` first (0.05 → 0.01). This filters at the model level — species with <1% occurrence probability at the configured coordinates aren't even considered. Then layer on global threshold (0.6 → 0.65) and species-specific thresholds for volume control and habitat mismatches.
+- **Full config:** See Serena memory `birdnet_detection_tuning_mar2026` for all 11 species thresholds.
+- **Applies to:** Any future tuning session — start with range filter, then species-specific, then global.
+
 ### MQTT discovery source IDs regenerate on restart — stale configs accumulate — 2026-02-17
 - **Context:** After deploying a new binary, HA still showed errors from old sensors
 - **Root cause:** Audio source IDs (e.g., `audio_card_6a7886c1`) are regenerated each time BirdNET starts. Old retained MQTT discovery configs with old source IDs persist on the broker, creating ghost sensors in HA
