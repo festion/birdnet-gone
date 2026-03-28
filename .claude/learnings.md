@@ -56,21 +56,24 @@
 - **Verification:** Use `/api/v2/analytics/species/summary` (checks DB aggregates) instead of event bus metrics to confirm detections are happening. The `/api/v2/detections` endpoint may also have query parameter quirks — species summary is more reliable for a quick health check.
 - **Applies to:** BirdNET-Go briefing/monitoring, any future zero-detection investigation
 
-### BOYA desync recovery requires USB receiver reset, not just transmitter power cycle — 2026-03-25
-- **Context:** BOYA wireless desync (zero-amplitude audio, -200 dB). Physical transmitter power cycle + BirdNET service restart did NOT fix it. Watchdog continued reporting silence.
-- **Wrong:** Only power cycling the transmitter and restarting BirdNET. The USB receiver holds a stale audio stream.
-- **Right:** Software USB reset via unbind/rebind, then restart BirdNET:
+### BOYA desync has two failure modes — zero-amplitude vs I/O error — 2026-03-25
+- **Context:** BOYA wireless desync. Two distinct failure modes observed.
+- **Mode 1 — Zero-amplitude (soft desync):** USB receiver streams silence (-200 dB). Software USB unbind/rebind fixes it:
   ```bash
   sudo systemctl stop birdnet-go-native.service
+  # Kill any orphaned birdnet-go processes first!
+  sudo kill -9 $(pgrep -f 'birdnet-go realtime') 2>/dev/null
   echo '1-1.2' | sudo tee /sys/bus/usb/drivers/usb/unbind
-  sleep 3
+  sleep 5
   echo '1-1.2' | sudo tee /sys/bus/usb/drivers/usb/bind
-  sleep 2
+  sleep 3
   sudo systemctl start birdnet-go-native.service
   ```
-  The USB port `1-1.2` is the BOYA receiver on the Pi. Unbind forces the kernel to drop the audio device; rebind triggers full re-enumeration. BOYA re-enumerates as card 2.
+- **Mode 2 — I/O error (hard desync):** USB receiver enumerates but `arecord` returns `pcm_read: read error: Input/output error`. Software USB reset does NOT fix this. **Requires physical power cycle of the BOYA transmitter.** The transmitter's 2.4GHz radio is fully desynced.
+- **Critical:** The `Wants=sys-subsystem-sound-devices-card2.device` in the service unit causes systemd to auto-restart BirdNET on USB rebind, spawning orphan processes that hold `/dev/snd/pcmC2D0c`. **Always kill orphans before USB reset** or the watchdog/manual reset will fail with "device busy".
+- **Diagnosis:** `arecord -D hw:2,0 -d 1 -f S24_3LE -r 48000 -c 2 /dev/null` — if "I/O error" → hard desync (need physical access). If silence → soft desync (USB reset may work).
 - **Detection:** Watchdog `mean=-200.0 dB` is the reliable indicator. `events_received=0` is NOT (see separate learning).
-- **Applies to:** Any BOYA desync where transmitter power cycle alone doesn't resolve
+- **Applies to:** Any BOYA desync investigation
 
 ### Range filter threshold is the highest-impact tuning lever — 2026-03-25
 - **Context:** 1,848 detections in 4 days, 34 species, many questionable for north TX. `rangefilter.threshold` was 0.05 (5% occurrence probability — too loose).
@@ -78,6 +81,44 @@
 - **Right:** Tighten `rangefilter.threshold` first (0.05 → 0.01). This filters at the model level — species with <1% occurrence probability at the configured coordinates aren't even considered. Then layer on global threshold (0.6 → 0.65) and species-specific thresholds for volume control and habitat mismatches.
 - **Full config:** See Serena memory `birdnet_detection_tuning_mar2026` for all 11 species thresholds.
 - **Applies to:** Any future tuning session — start with range filter, then species-specific, then global.
+
+### BOYA hard desync requires manual re-pair, not just power cycle — 2026-03-28
+- **Context:** BOYA hard desync since Mar 26. Pi reboots, USB unbind/rebind, and even transmitter power cycling did NOT restore pairing.
+- **Wrong:** Assuming power cycling the transmitter is sufficient. The BOYA's pairing table can get corrupted during hard desync, preventing auto-pair.
+- **Right:** Use the manual re-pair procedure: (1) Power off transmitter, (2) On USB-C receiver: hold power 2s to off, then hold 5s to enter pairing mode, (3) On transmitter: hold power 5s while off to enter pairing mode, (4) Both LEDs blink blue quickly → solid blue = paired.
+- **LED guide:** Slow blue blink = unpaired/idle (NOT actively pairing). Fast blue blink = pairing mode (5 min timeout). Solid blue = paired. Fast red blink = low battery.
+- **Also required:** Physical USB reseat of receiver + Pi reboot before re-pair worked. USB unbind/rebind alone was insufficient.
+- **Applies to:** Any BOYA hard desync where USB reset + power cycle fails
+
+### Health check v5 had broken journal grep — replaced with MQTT-based v6 — 2026-03-28
+- **Context:** `check_inference_activity()` grepped journalctl for `"Published sound level data"` — a string that never appears in the journal (logged to file via `analysis` module logger, not console)
+- **Wrong:** Searching journalctl for module-logged messages. Also had bash syntax error from `grep -c` returning multiline output.
+- **Right:** Health check v6 uses MQTT sound level check (same as boya-reset.sh) — reads `birdnet/soundlevel` topic, checks timestamp freshness (< 2 min). Deployed to `/usr/local/bin/birdnet-health-check.sh`.
+- **Also fixed:** Double-logging (tee + cron redirect to same file), cron race condition (health check staggered to :03/:18/:33/:48, BOYA reset stays at :00/:15/:30/:45)
+- **Applies to:** Any future health check modifications
+
+### DSI display brightness resets to 15/255 on reboot — 2026-03-28
+- **Context:** After Pi reboot, display appeared blank — brightness was 15/255 (nearly off)
+- **Right:** Created `display-brightness.service` (oneshot, multi-user.target) that writes 200 to `/sys/class/backlight/10-0045/brightness` on boot
+- **Applies to:** Any Pi reboot or display troubleshooting
+
+### ALSA device is exclusive — arecord fails with "Device busy" while BirdNET-Go runs — 2026-03-26
+- **Context:** BOYA reset script tried `arecord -D hw:2,0` as a smoke test for hard desync while birdnet-go-native was running
+- **Wrong:** Assumed BOYA's ALSA driver supports concurrent reads. arecord returned "audio open error: Device or resource busy"
+- **Right:** BirdNET-Go holds the ALSA device exclusively. Cannot use arecord while service is running. Use MQTT sound level (-200 dB = silence) as the sole desync indicator.
+- **Applies to:** Any diagnostic that tries to read the audio device while BirdNET-Go is active
+
+### Fork's 3 MQTT patches still needed as of upstream nightly-20260322 — 2026-03-26
+- **Context:** Evaluated whether fork could be replaced with stock upstream
+- **Verified:** Upstream still uses random UUIDs for source IDs (not deterministic), has no stale discovery cleanup, and uses bare `this.state` in measurement sensor templates
+- **Right:** Fork patches a953b18d (deterministic IDs), e3308370 (stale cleanup), 64f7799a (HA measurement fix) are all still required
+- **Applies to:** Any future consideration of dropping the fork or rebasing onto upstream
+
+### Flask display exposed unauthenticated sudo reboot — caused unscheduled reboot — 2026-03-26
+- **Context:** Pi rebooted at 07:15 from `POST /reboot` to Flask app from localhost (127.0.0.1)
+- **Wrong:** Flask display app exposed `sudo reboot`, `sudo poweroff`, `sudo systemctl restart` as unauthenticated HTTP POST endpoints accessible from the kiosk Chromium browser
+- **Right:** If custom display is ever re-enabled, remove all system control endpoints or add authentication. The built-in BirdNET-Go web UI (port 8080) has no such endpoints.
+- **Applies to:** Any future display/kiosk development
 
 ### MQTT discovery source IDs regenerate on restart — stale configs accumulate — 2026-02-17
 - **Context:** After deploying a new binary, HA still showed errors from old sensors
