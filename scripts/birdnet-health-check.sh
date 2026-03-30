@@ -274,6 +274,11 @@ attempt_soft_recovery() {
     # Kill any processes spawned by USB rebind (systemd udev trigger)
     kill_all_birdnet
 
+    # Reset systemd failure counter (USB rebind may have triggered auto-start
+    # via After= dependency, and our kill counts as a failed start toward the
+    # rate limit of StartLimitBurst=5)
+    systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
+
     # Start service
     log "INFO: Starting $SERVICE_NAME"
     systemctl start "$SERVICE_NAME" 2>/dev/null || {
