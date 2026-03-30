@@ -223,6 +223,52 @@ except Exception:
     esac
 }
 
+# Check ESP32 keepalive heartbeat via MQTT.
+# Reads birdnet/keepalive/status retained message.
+# Returns 0 if alive and fresh, 1 if stale or offline.
+# Sets ESP32_STATUS for inclusion in alerts.
+ESP32_STATUS=""
+check_esp32_keepalive() {
+    local msg
+    msg=$(mosquitto_sub \
+        -h "$MQTT_BROKER" \
+        -u "$MQTT_USER" \
+        -P "$MQTT_PASS" \
+        -t "birdnet/keepalive/status" \
+        -C 1 \
+        -W 10 2>/dev/null) || {
+        ESP32_STATUS="unreachable (MQTT timeout)"
+        log "WARNING: ESP32 keepalive not responding (MQTT timeout)"
+        return 1
+    }
+
+    if [[ -z "$msg" ]]; then
+        ESP32_STATUS="unreachable (empty message)"
+        log "WARNING: ESP32 keepalive not responding (empty message)"
+        return 1
+    fi
+
+    local alive
+    alive=$(echo "$msg" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print('true' if d.get('alive') else 'false')
+except Exception:
+    print('error')
+" 2>/dev/null)
+
+    if [[ "$alive" != "true" ]]; then
+        ESP32_STATUS="offline (alive=$alive)"
+        log "WARNING: ESP32 keepalive reports offline (alive=$alive)"
+        return 1
+    fi
+
+    log "INFO: ESP32 keepalive is alive"
+    ESP32_STATUS=""
+    return 0
+}
+
 # ============================================================================
 # DESYNC RECOVERY
 # ============================================================================
@@ -463,7 +509,11 @@ main() {
                 touch "$COOLDOWN_FILE"
                 local cooldown_until
                 cooldown_until=$(date -d "+${COOLDOWN_SECONDS} seconds" '+%H:%M')
-                send_pushover_alert "Soft recovery failed (USB rebind). Manual re-pair needed. Cooldown until ${cooldown_until}."
+                local alert_msg="Soft recovery failed (USB rebind). Manual re-pair needed. Cooldown until ${cooldown_until}."
+                if [[ -n "$ESP32_STATUS" ]]; then
+                    alert_msg="${alert_msg} Keepalive buzzer: ${ESP32_STATUS}."
+                fi
+                send_pushover_alert "$alert_msg"
                 log "INFO: Cooldown set — next recovery attempt after ${cooldown_until}"
             fi
         fi
@@ -473,6 +523,9 @@ main() {
 
     # Always report detection stats
     report_detection_stats
+
+    # Check: ESP32 keepalive (informational — does not trigger restart)
+    check_esp32_keepalive || true
 
     # Normal restart if needed (non-desync issues)
     if [[ "$needs_restart" == "true" ]]; then
