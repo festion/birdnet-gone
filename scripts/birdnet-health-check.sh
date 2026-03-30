@@ -425,15 +425,27 @@ main() {
     fi
 
     # Check 4: MQTT pipeline active?
+    # Note: Hard desync prevents BirdNET-Go from publishing fresh MQTT
+    # (ALSA I/O errors → no sound level data → stale MQTT). If MQTT is stale
+    # but the last message shows all bands at -200 dB, route to desync recovery
+    # instead of a normal restart (which would loop forever).
+    local mqtt_stale=false
     if [[ "$needs_restart" == "false" ]]; then
         if ! read_mqtt_sound_level; then
-            needs_restart=true
-            restart_reason="audio pipeline not active (no recent MQTT sound level)"
+            mqtt_stale=true
+            # Check if stale message indicates desync (-200 dB on all bands)
+            if [[ -n "${MQTT_MSG:-}" ]] && check_all_bands_silent; then
+                log "INFO: MQTT stale with all bands at -200 dB — routing to desync recovery"
+            else
+                needs_restart=true
+                restart_reason="audio pipeline not active (no recent MQTT sound level)"
+            fi
         fi
     fi
 
-    # Check 5: BOYA desync? (only if MQTT is active but all bands silent)
-    if [[ "$needs_restart" == "false" ]] && check_all_bands_silent; then
+    # Check 5: BOYA desync? (fresh MQTT with all bands silent, or stale MQTT with -200 dB)
+    if { [[ "$needs_restart" == "false" ]] && check_all_bands_silent; } || \
+       { [[ "$mqtt_stale" == "true" && "$needs_restart" == "false" ]]; }; then
         if is_cooldown_active; then
             log "INFO: Desync persists but cooldown active — skipping recovery"
         else
