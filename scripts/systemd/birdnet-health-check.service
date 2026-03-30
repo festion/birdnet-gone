@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/birdnet-health-check.sh
-TimeoutStartSec=120
+TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target
