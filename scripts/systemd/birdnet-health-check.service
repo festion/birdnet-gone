@@ -1,0 +1,11 @@
+[Unit]
+Description=BirdNET-Go Health Check
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/birdnet-health-check.sh
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
