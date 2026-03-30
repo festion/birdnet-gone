@@ -53,3 +53,6 @@ __pycache__/
 # 3D print files (large binaries)
 *.3mf
 *.step
+
+# ESP32 keepalive credentials
+firmware/esp32-keepalive/src/config.h

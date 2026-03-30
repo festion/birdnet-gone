@@ -1,0 +1,16 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// WiFi
+#define WIFI_SSID     "Lakehouse"
+#define WIFI_PASSWORD "your_wifi_password_here"
+
+// MQTT Broker
+#define MQTT_BROKER   "192.168.1.148"
+#define MQTT_PORT     1883
+#define MQTT_USER     "birdnet"
+#define MQTT_PASSWORD "secret"
+#define MQTT_TOPIC    "birdnet/keepalive/status"
+#define MQTT_CLIENT   "birdnet-keepalive"
+
+#endif
