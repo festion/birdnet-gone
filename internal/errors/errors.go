@@ -402,6 +402,7 @@ func init() {
 	RegisterComponent("birdweather", "birdweather")
 	RegisterComponent("backup", "backup")
 	RegisterComponent("api", "api")
+	RegisterComponent("vicohome", "vicohome")
 
 	// Analysis package components - use slash-separated paths for subpackages
 	RegisterComponent("analysis", "analysis")
