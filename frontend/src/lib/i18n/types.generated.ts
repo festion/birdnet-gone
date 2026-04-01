@@ -12,6 +12,7 @@
 export type TranslationKey =
   | 'common.loading'
   | 'common.error'
+  | 'common.unknown'
   | 'common.retry'
   | 'common.retrying'
   | 'common.save'
@@ -81,6 +82,8 @@ export type TranslationKey =
   | 'common.ui.settingsNotFound'
   | 'common.ui.sectionNotFound' // params: section
   | 'common.ui.loadingMap'
+  | 'common.ui.mapZoomHelp'
+  | 'common.ui.mapSetLocationHelp'
   | 'common.ui.imageNotAvailable'
   | 'common.ui.search'
   | 'common.status.success'
@@ -131,12 +134,14 @@ export type TranslationKey =
   | 'common.labels.github'
   | 'common.values.yes'
   | 'common.values.no'
+  | 'common.values.unknown'
   | 'common.modal.confirmAction'
   | 'common.modal.confirmMessage'
   | 'common.review.modalTitle' // params: species
   | 'common.review.status.verifiedCorrect'
   | 'common.review.status.falsePositive'
   | 'common.review.status.notReviewed'
+  | 'common.review.status.locked'
   | 'common.review.form.correctDetection'
   | 'common.review.form.falsePositiveLabel'
   | 'common.review.form.reviewDetectionTitle'
@@ -185,6 +190,7 @@ export type TranslationKey =
   | 'navigation.closeSidebar'
   | 'navigation.analyticsSubmenu'
   | 'navigation.settingsSubmenu'
+  | 'navigation.kiosk'
   | 'about.title'
   | 'about.subtitle'
   | 'about.logoAlt'
@@ -500,7 +506,15 @@ export type TranslationKey =
   | 'detections.aria.loading'
   | 'detections.aria.loaded' // params: species
   | 'detections.aria.error' // params: error
+  | 'detections.errors.notFound'
+  | 'detections.errors.noPermission'
+  | 'detections.errors.loginRequired'
+  | 'detections.errors.serverError'
+  | 'detections.errors.loadFailed' // params: status
+  | 'detections.errors.noIdProvided'
   | 'species.rarity.title'
+  | 'species.rarity.score'
+  | 'species.rarity.basedOnLocation' // params: latitude, longitude
   | 'species.taxonomy.hierarchy'
   | 'species.taxonomy.subspecies'
   | 'species.taxonomy.noData'
@@ -1347,6 +1361,16 @@ export type TranslationKey =
   | 'settings.audio.streams.timeline.to'
   | 'settings.audio.streams.timeline.reason'
   | 'settings.audio.streams.timeline.eventAt' // params: time
+  | 'settings.audio.streams.diagnostics.toggleDiagnostics'
+  | 'settings.audio.streams.diagnostics.processState'
+  | 'settings.audio.streams.diagnostics.lastData'
+  | 'settings.audio.streams.diagnostics.restartCount'
+  | 'settings.audio.streams.diagnostics.connection'
+  | 'settings.audio.streams.diagnostics.stateErrorHistory'
+  | 'settings.audio.streams.connectionStatus.stable'
+  | 'settings.audio.streams.connectionStatus.degraded'
+  | 'settings.audio.streams.connectionStatus.failed'
+  | 'settings.audio.streams.connectionStatus.unknown'
   | 'settings.audio.audioFilters.title'
   | 'settings.audio.audioFilters.description'
   | 'settings.audio.audioFilters.enableEqualizer'
@@ -1897,8 +1921,13 @@ export type TranslationKey =
   | 'media.spectrogram.generationFailed'
   | 'media.spectrogram.generationSuccess'
   | 'components.audio.spectrogramUnavailable'
+  | 'components.audio.spectrogramLoading'
+  | 'components.audio.spectrogramLoaded'
+  | 'components.audio.spectrogramLoadingAria'
+  | 'components.audio.spectrogramGeneratingAria'
   | 'components.audio.generating'
   | 'components.audio.queuePosition' // params: position
+  | 'components.audio.loadError'
   | 'components.forms.numberField.adjustedToMinimum' // params: value
   | 'components.forms.numberField.adjustedToMaximum' // params: value
   | 'components.forms.rtsp.addNewStream'
@@ -1930,7 +1959,13 @@ export type TranslationKey =
   | 'components.datePicker.status.error'
   | 'detection.actions.back'
   | 'detection.actions.review'
-  | 'detection.actions.download';
+  | 'detection.actions.download'
+  | 'kiosk.settings'
+  | 'kiosk.reboot'
+  | 'kiosk.poweroff'
+  | 'kiosk.openFullUI'
+  | 'kiosk.offline'
+  | 'kiosk.noDetections';
 
 /**
  * Parameter types for translations that require parameters
@@ -2010,6 +2045,8 @@ export type TranslationParams = {
   'detections.row.viewDetails': { species: string | number };
   'detections.aria.loaded': { species: string | number };
   'detections.aria.error': { error: string | number };
+  'detections.errors.loadFailed': { status: string | number };
+  'species.rarity.basedOnLocation': { latitude: string | number; longitude: string | number };
   'system.systemInfo.temperatureValue': { temp: string | number };
   'system.errors.systemInfo': { error: string | number };
   'system.errors.diskUsage': { error: string | number };

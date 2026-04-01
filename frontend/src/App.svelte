@@ -34,6 +34,7 @@
   let DetectionDetail = $state<Component | null>(null);
   let ErrorPage = $state<Component | null>(null);
   let ServerErrorPage = $state<Component | null>(null);
+  let Kiosk = $state<Component | null>(null);
   let GenericErrorPage = $state<any>(null);
 
   let currentRoute = $state<string>('');
@@ -110,6 +111,7 @@
     { route: 'about', page: 'about', titleKey: 'navigation.about', component: 'about' },
     { route: 'system', page: 'system', titleKey: 'navigation.system', component: 'system' },
     { route: 'settings', page: 'settings', titleKey: 'navigation.settings', component: 'settings' },
+    { route: 'kiosk', page: 'kiosk', titleKey: 'navigation.kiosk', component: 'kiosk' },
   ];
 
   // Settings subpage title keys
@@ -193,6 +195,12 @@
             DetectionDetail = module.default;
           }
           break;
+        case 'kiosk':
+          if (!Kiosk) {
+            const module = await import('./lib/desktop/views/Kiosk.svelte');
+            Kiosk = module.default;
+          }
+          break;
         case 'error-404':
           if (!ErrorPage) {
             const module = await import('./lib/desktop/views/ErrorPage.svelte');
@@ -260,6 +268,7 @@
     '/ui/about': findRouteConfig('about'),
     '/ui/system': findRouteConfig('system'),
     '/ui/settings': findRouteConfig('settings'),
+    '/ui/kiosk': findRouteConfig('kiosk'),
   });
 
   function handleRouting(path: string): void {
@@ -442,6 +451,8 @@
       </div>
     </div>
   </div>
+{:else if currentRoute === 'kiosk'}
+  {@render renderRoute(Kiosk)}
 {:else}
   <RootLayout
     title={pageTitle}

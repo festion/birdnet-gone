@@ -199,7 +199,8 @@
     "mainNavigation": "Päänavigaatio",
     "closeSidebar": "Sulje sivupalkki",
     "analyticsSubmenu": "Analytiikan alavalikko",
-    "settingsSubmenu": "Asetusten alavalikko"
+    "settingsSubmenu": "Asetusten alavalikko",
+    "kiosk": "Kiosk"
   },
   "pageTitle": {
     "settings": "Asetukset - BirdNET-Go",
@@ -2839,5 +2840,13 @@
       "review": "Tarkista",
       "download": "Lataa"
     }
+  },
+  "kiosk": {
+    "settings": "Kiosk Settings",
+    "reboot": "Reboot",
+    "poweroff": "Power Off",
+    "openFullUI": "Open Full UI",
+    "offline": "Offline — Reconnecting...",
+    "noDetections": "No recent detections"
   }
 }

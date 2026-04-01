@@ -4,6 +4,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -50,6 +51,10 @@ func (c *Controller) initControlRoutes() {
 	controlGroup.POST("/reload", c.ReloadModel)
 	controlGroup.POST("/rebuild-filter", c.RebuildFilter)
 	controlGroup.GET("/actions", c.GetAvailableActions)
+
+	// System control routes
+	controlGroup.POST("/system/reboot", c.SystemReboot)
+	controlGroup.POST("/system/poweroff", c.SystemPoweroff)
 
 	c.logInfoIfEnabled("Control routes initialized successfully")
 }
@@ -167,4 +172,44 @@ func (c *Controller) ReloadModel(ctx echo.Context) error {
 func (c *Controller) RebuildFilter(ctx echo.Context) error {
 	return c.handleControlSignal(ctx, SignalRebuildFilter, ActionRebuildFilter,
 		"Received request to rebuild species filter", "Filter rebuild signal sent")
+}
+
+// SystemReboot handles POST /api/v2/control/system/reboot
+// Triggers a system reboot after a brief delay
+func (c *Controller) SystemReboot(ctx echo.Context) error {
+	c.logInfoIfEnabled("System reboot requested",
+		logger.String("ip", ctx.RealIP()),
+	)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		_ = exec.Command("sudo", "reboot").Run()
+	}()
+
+	return ctx.JSON(http.StatusOK, ControlResult{
+		Success:   true,
+		Message:   "System rebooting",
+		Action:    "system_reboot",
+		Timestamp: time.Now(),
+	})
+}
+
+// SystemPoweroff handles POST /api/v2/control/system/poweroff
+// Triggers a system shutdown after a brief delay
+func (c *Controller) SystemPoweroff(ctx echo.Context) error {
+	c.logInfoIfEnabled("System poweroff requested",
+		logger.String("ip", ctx.RealIP()),
+	)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		_ = exec.Command("sudo", "poweroff").Run()
+	}()
+
+	return ctx.JSON(http.StatusOK, ControlResult{
+		Success:   true,
+		Message:   "System shutting down",
+		Action:    "system_poweroff",
+		Timestamp: time.Now(),
+	})
 }
