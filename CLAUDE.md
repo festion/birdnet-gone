@@ -27,7 +27,7 @@ BirdNET-Go: Go implementation of BirdNET for real-time bird sound identification
 ### Critical Constraints
 
 - **NEVER expand API v1** - All new endpoints in `internal/api/v2/`
-- **Always lint before commit**: `golangci-lint run -v` (Go), `npm run check:all` (Frontend)
+- **Always lint before commit**: `task lint` (Go), `npm run check:all` (Frontend)
 - **Branch from updated main**: `git pull origin main && git checkout -b feature-name`
 - **No magic numbers/strings** - Use named constants with descriptive names
 
@@ -94,7 +94,7 @@ ast-grep --pattern "export let $PROP" --rewrite "let { $PROP } = \$props()" --la
 
 ## Pre-Commit Checklist
 
-1. Run linters: `golangci-lint run -v` / `npm run check:all`
+1. Run linters: `task lint` / `npm run check:all`
 2. Run tests: `go test -race -v` / `npm test`
 3. Check open PRs to avoid conflicts
 4. Format markdown with prettier

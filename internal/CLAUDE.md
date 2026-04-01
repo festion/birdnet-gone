@@ -463,7 +463,8 @@ for _, item := range items {
 
 ## Pre-Commit Checklist
 
-- [ ] Run `golangci-lint run -v` - **MUST have zero errors**
+- [ ] Run `task lint` - **MUST have zero errors**
+  - Uses `task lint` (not bare `golangci-lint`) to set TFLite CGO flags automatically
   - **Always run on full project** - never single files/packages (incomplete results)
   - **Primary compilation validation** - don't run `go build` separately
 - [ ] Run `go test -race -v`
