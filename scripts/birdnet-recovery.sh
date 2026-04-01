@@ -9,7 +9,8 @@ set -euo pipefail
 LOG="/var/log/birdnet-recovery.log"
 COOLDOWN_FILE="/tmp/birdnet-recovery-cooldown"
 COOLDOWN_SECONDS=7200
-USB_PORT="1-1.2"
+USB_HUB="1-1"
+USB_HUB_PORT="2"
 SERVICE="birdnet-go-native.service"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG"; }
@@ -54,11 +55,11 @@ sleep 2
 sudo kill -9 $(pgrep -f 'birdnet-go realtime') 2>/dev/null || true
 sleep 1
 
-# USB unbind/rebind
-echo "$USB_PORT" | sudo tee /sys/bus/usb/drivers/usb/unbind > /dev/null 2>&1 || true
+# USB power cycle via uhubctl (cuts electrical power, more effective than unbind/rebind)
+sudo uhubctl -l "$USB_HUB" -p "$USB_HUB_PORT" -a off > /dev/null 2>&1 || true
+sleep 10
+sudo uhubctl -l "$USB_HUB" -p "$USB_HUB_PORT" -a on > /dev/null 2>&1 || true
 sleep 5
-echo "$USB_PORT" | sudo tee /sys/bus/usb/drivers/usb/bind > /dev/null 2>&1 || true
-sleep 3
 
 # Restart service
 sudo systemctl start "$SERVICE"
