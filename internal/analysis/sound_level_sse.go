@@ -20,6 +20,17 @@ func getSoundLevelMetrics(apiController *apiv2.Controller) *metrics.SoundLevelMe
 	return apiController.Processor.Metrics.SoundLevel
 }
 
+// soundLevelToAudioLevel derives a simple 0-100 audio level from octave band data.
+// Returns 0 if all bands are at -200 dB (silence/desync), >0 otherwise.
+func soundLevelToAudioLevel(data myaudio.SoundLevelData) int {
+	for _, band := range data.OctaveBands {
+		if band.Mean > -200 {
+			return 1 // Any non-silent band means audio is active
+		}
+	}
+	return 0
+}
+
 // startSoundLevelSSEPublisher starts a goroutine to consume sound level data and publish via SSE
 func startSoundLevelSSEPublisher(wg *sync.WaitGroup, ctx context.Context, apiController *apiv2.Controller, soundLevelChan <-chan myaudio.SoundLevelData) {
 	if apiController == nil {

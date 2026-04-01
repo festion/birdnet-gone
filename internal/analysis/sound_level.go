@@ -461,9 +461,17 @@ func startSoundLevelPublishers(wg *sync.WaitGroup, doneChan chan struct{}, proc 
 		close(mergedQuitChan)
 	}()
 
+	// Build health callback for MQTT publisher to update /health endpoint
+	var healthCallback func(myaudio.SoundLevelData)
+	if apiController != nil {
+		healthCallback = func(data myaudio.SoundLevelData) {
+			apiController.UpdateAudioHealth(soundLevelToAudioLevel(data))
+		}
+	}
+
 	// Start MQTT publisher if enabled
 	if settings.Realtime.MQTT.Enabled {
-		startSoundLevelMQTTPublisherWithDone(wg, mergedQuitChan, proc, soundLevelChan)
+		startSoundLevelMQTTPublisherWithDone(wg, mergedQuitChan, proc, soundLevelChan, healthCallback)
 	}
 
 	// Start SSE publisher if API is available
@@ -477,8 +485,10 @@ func startSoundLevelPublishers(wg *sync.WaitGroup, doneChan chan struct{}, proc 
 	}
 }
 
-// startSoundLevelMQTTPublisherWithDone starts MQTT publisher with a custom done channel
-func startSoundLevelMQTTPublisherWithDone(wg *sync.WaitGroup, doneChan <-chan struct{}, proc *processor.Processor, soundLevelChan <-chan myaudio.SoundLevelData) {
+// startSoundLevelMQTTPublisherWithDone starts MQTT publisher with a custom done channel.
+// The optional healthCallback is invoked on every received data point to update the
+// /health endpoint's audio state, ensuring health tracking works even without SSE clients.
+func startSoundLevelMQTTPublisherWithDone(wg *sync.WaitGroup, doneChan <-chan struct{}, proc *processor.Processor, soundLevelChan <-chan myaudio.SoundLevelData, healthCallback func(myaudio.SoundLevelData)) {
 	wg.Go(func() {
 		getSoundLevelLogger().Info("Started sound level MQTT publisher")
 
@@ -493,6 +503,12 @@ func startSoundLevelMQTTPublisherWithDone(wg *sync.WaitGroup, doneChan <-chan st
 					getSoundLevelLogger().Info("Sound level channel closed, stopping MQTT publisher")
 					return
 				}
+
+				// Update audio health tracking for the /health endpoint
+				if healthCallback != nil {
+					healthCallback(soundData)
+				}
+
 				// Log received sound level data if debug is enabled
 				if conf.Setting().Realtime.Audio.SoundLevel.Debug {
 					lg := getSoundLevelLogger()
