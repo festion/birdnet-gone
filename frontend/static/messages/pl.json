@@ -209,7 +209,8 @@
     "mainNavigation": "Główna nawigacja",
     "closeSidebar": "Zamknij menu boczne",
     "analyticsSubmenu": "Podmenu analityki",
-    "settingsSubmenu": "Podmenu ustawień"
+    "settingsSubmenu": "Podmenu ustawień",
+    "kiosk": "Kiosk"
   },
   "about": {
     "title": "BirdNET-Go",
@@ -2839,5 +2840,13 @@
       "review": "Przejrzyj",
       "download": "Pobierz"
     }
+  },
+  "kiosk": {
+    "settings": "Kiosk Settings",
+    "reboot": "Reboot",
+    "poweroff": "Power Off",
+    "openFullUI": "Open Full UI",
+    "offline": "Offline — Reconnecting...",
+    "noDetections": "No recent detections"
   }
 }

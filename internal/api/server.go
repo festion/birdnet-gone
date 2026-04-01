@@ -455,6 +455,7 @@ func (s *Server) registerSPARoutes() {
 		"/ui/analytics/advanced",
 		"/ui/search",
 		"/ui/about",
+		"/ui/kiosk",
 	}
 
 	// Public dynamic routes (with path parameters)
