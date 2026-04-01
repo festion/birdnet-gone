@@ -103,7 +103,7 @@ func TestHealthCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check required fields
-		assert.Contains(t, response, "status", "Response must contain status field")
+		assert.Equal(t, "unhealthy", response["status"], "Status should be unhealthy when no audio data present")
 		assert.Equal(t, "1.2.3", response["version"], "Version should match controller settings")
 		assert.Equal(t, "2023-05-15", response["build_date"], "Build date should match controller settings")
 
