@@ -1,0 +1,7 @@
+[Unit]
+Description=BirdNET-Go Recovery Check
+After=birdnet-go-native.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/birdnet-recovery.sh
