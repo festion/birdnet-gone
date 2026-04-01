@@ -5,18 +5,22 @@
     confidence: number;
     timeAgo: string;
     cameraImageUrl?: string;
+    thumbnailUrl?: string;
   }
 
-  let { species, scientificName, confidence, timeAgo, cameraImageUrl = '' }: Props = $props();
+  let {
+    species,
+    scientificName,
+    confidence,
+    timeAgo,
+    cameraImageUrl = '',
+    thumbnailUrl = '',
+  }: Props = $props();
 
   let imageError = $state(false);
 
-  // Image priority: camera still > API thumbnail
-  let imageUrl = $derived(
-    cameraImageUrl && !imageError
-      ? cameraImageUrl
-      : `/api/v2/analytics/species/thumbnails?species=${encodeURIComponent(scientificName)}`
-  );
+  // Image priority: camera still > API thumbnail > none
+  let imageUrl = $derived(cameraImageUrl && !imageError ? cameraImageUrl : thumbnailUrl || '');
 
   function handleImageError(): void {
     imageError = true;
@@ -25,7 +29,11 @@
 
 <div class="bird-card">
   <div class="bird-card-image">
-    <img src={imageUrl} alt={species} onerror={handleImageError} />
+    {#if imageUrl}
+      <img src={imageUrl} alt={species} onerror={handleImageError} />
+    {:else}
+      <div class="bird-card-placeholder">{species.charAt(0)}</div>
+    {/if}
     <div class="bird-card-confidence">
       {confidence}%
     </div>
@@ -59,6 +67,18 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .bird-card-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #374151;
+    color: #6b7280;
+    font-size: 3rem;
+    font-weight: 700;
   }
 
   .bird-card-confidence {

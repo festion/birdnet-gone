@@ -18,6 +18,7 @@
 
   let detections = $state<Detection[]>([]);
   let cameraImages = $state<CameraImages>({});
+  let thumbnailUrls = $state<Record<string, string>>({});
   let isOffline = $state(false);
   let showSettings = $state(false);
   let settingsTapCount = $state(0);
@@ -47,8 +48,27 @@
 
       detections = unique;
       isOffline = false;
+
+      // Fetch thumbnail URLs for displayed species
+      const sciNames = unique.map(d => d.scientificName).filter(Boolean);
+      if (sciNames.length > 0) {
+        await fetchThumbnails(sciNames);
+      }
     } catch {
       isOffline = true;
+    }
+  }
+
+  async function fetchThumbnails(sciNames: string[]): Promise<void> {
+    try {
+      const params = sciNames.map(n => `species=${encodeURIComponent(n)}`).join('&');
+      const response = await fetch(`/api/v2/analytics/species/thumbnails?${params}`);
+      if (response.ok) {
+        const data: Record<string, string> = await response.json();
+        thumbnailUrls = data;
+      }
+    } catch {
+      // Thumbnails are best-effort
     }
   }
 
@@ -131,6 +151,7 @@
           confidence={Math.round(detection.confidence * 100)}
           timeAgo={formatTimeAgo(detection.date, detection.time)}
           cameraImageUrl={cameraImages[detection.commonName.toLowerCase()] ?? ''}
+          thumbnailUrl={thumbnailUrls[detection.scientificName] ?? ''}
         />
       {/each}
     </div>
