@@ -79,6 +79,12 @@ type Controller struct {
 	// TODO: Consider moving to a dedicated audio manager
 	audioLevelChan chan myaudio.AudioLevelData
 
+	// Audio health tracking for /health endpoint self-reporting
+	lastAudioLevel     int
+	lastAudioLevelTime time.Time
+	audioActive        bool
+	audioHealthMu      sync.RWMutex
+
 	// Test synchronization fields (only populated when initializeRoutes is true)
 	// goroutinesStarted signals when all background goroutines have successfully started.
 	// This is primarily used in testing to ensure proper setup before assertions.
@@ -481,14 +487,63 @@ func (c *Controller) initRoutes() {
 	}
 }
 
+// Audio health status constants
+const (
+	// audioHealthStaleThreshold is the maximum age of audio level data before
+	// the system is considered unhealthy (no audio data for this duration).
+	audioHealthStaleThreshold = 5 * time.Minute
+
+	// audioHealthSilenceLevel is the audio level at or below which the system
+	// is considered silent (possible BOYA wireless desync).
+	audioHealthSilenceLevel = 0
+)
+
+// UpdateAudioHealth updates the audio health tracking state.
+// Called from the audio level broadcaster when new audio data arrives.
+func (c *Controller) UpdateAudioHealth(level int) {
+	c.audioHealthMu.Lock()
+	defer c.audioHealthMu.Unlock()
+	c.lastAudioLevel = level
+	c.lastAudioLevelTime = time.Now()
+	c.audioActive = true
+}
+
 // HealthCheck handles the API health check endpoint
 func (c *Controller) HealthCheck(ctx echo.Context) error {
+	// Read audio health state under lock
+	c.audioHealthMu.RLock()
+	audioLevel := c.lastAudioLevel
+	audioLevelTime := c.lastAudioLevelTime
+	audioActive := c.audioActive
+	c.audioHealthMu.RUnlock()
+
+	audioLevelAge := time.Since(audioLevelTime).Seconds()
+
+	// Determine overall status based on audio health
+	status := "healthy"
+	if !audioActive || audioLevelAge > audioHealthStaleThreshold.Seconds() {
+		status = "unhealthy"
+	} else if audioLevel <= audioHealthSilenceLevel && audioLevelAge < audioHealthStaleThreshold.Seconds() {
+		status = "degraded" // Silence — possible BOYA desync
+	}
+
+	// Get detections today count
+	today := time.Now().Format("2006-01-02")
+	var detectionsToday int64
+	if count, err := c.DS.CountHourlyDetections(today, "0", 24); err == nil {
+		detectionsToday = count
+	}
+
 	// Create response structure
 	response := map[string]any{
-		"status":     "healthy",
-		"version":    c.Settings.Version,
-		"build_date": c.Settings.BuildDate,
-		"timestamp":  time.Now().Format(time.RFC3339),
+		"status":                       status,
+		"version":                      c.Settings.Version,
+		"build_date":                   c.Settings.BuildDate,
+		"timestamp":                    time.Now().Format(time.RFC3339),
+		"audio_active":                 audioActive,
+		"last_audio_level":             audioLevel,
+		"last_audio_level_age_seconds": int(audioLevelAge),
+		"detections_today":             detectionsToday,
 	}
 
 	// Add environment if available in settings
@@ -498,17 +553,12 @@ func (c *Controller) HealthCheck(ctx echo.Context) error {
 		response["environment"] = "production"
 	}
 
-	// Check database connectivity - simple check if we can access the datastore
+	// Check database connectivity
 	dbStatus := "connected"
 	var dbError string
-
-	// Try a simple database operation to check connectivity
-	_, dbErr := c.DS.GetLastDetections(1)
-	if dbErr != nil {
+	if _, dbErr := c.DS.GetLastDetections(1); dbErr != nil {
 		dbStatus = "disconnected"
 		dbError = dbErr.Error()
-		// If database is critical, we might want to change the overall status
-		// response["status"] = "degraded"
 	}
 
 	response["database_status"] = dbStatus
@@ -525,27 +575,17 @@ func (c *Controller) HealthCheck(ctx echo.Context) error {
 
 	// Add system metrics
 	systemMetrics := make(map[string]any)
-
-	// Add placeholder CPU usage (would be implemented with actual metrics in production)
 	systemMetrics["cpu_usage"] = 0.0
-
-	// Add placeholder memory usage
-	memoryMetrics := map[string]any{
+	systemMetrics["memory"] = map[string]any{
 		"used_percent": 0.0,
 		"total_mb":     0.0,
 		"used_mb":      0.0,
 	}
-	systemMetrics["memory"] = memoryMetrics
-
-	// Add placeholder disk space
-	diskMetrics := map[string]any{
+	systemMetrics["disk_space"] = map[string]any{
 		"total_gb":     0.0,
 		"free_gb":      0.0,
 		"used_percent": 0.0,
 	}
-	systemMetrics["disk_space"] = diskMetrics
-
-	// Add system metrics to response
 	response["system"] = systemMetrics
 
 	return ctx.JSON(http.StatusOK, response)

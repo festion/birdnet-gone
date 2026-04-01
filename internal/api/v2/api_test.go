@@ -65,6 +65,10 @@ func TestHealthCheck(t *testing.T) {
 	// Setup mock expectations for database check
 	mockDS.On("GetLastDetections", 1).Return([]datastore.Note{}, nil)
 
+	// Setup mock expectations for detection count (today's date, full day)
+	today := time.Now().Format("2006-01-02")
+	mockDS.On("CountHourlyDetections", today, "0", 24).Return(int64(0), nil)
+
 	// Add system metrics to the controller settings
 	controller.Settings.Version = "1.2.3"
 	controller.Settings.BuildDate = "2023-05-15"
@@ -99,9 +103,15 @@ func TestHealthCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check required fields
-		assert.Equal(t, "healthy", response["status"], "Status should be 'healthy'")
+		assert.Contains(t, response, "status", "Response must contain status field")
 		assert.Equal(t, "1.2.3", response["version"], "Version should match controller settings")
 		assert.Equal(t, "2023-05-15", response["build_date"], "Build date should match controller settings")
+
+		// Check audio health fields are present
+		assert.Contains(t, response, "audio_active", "Response must contain audio_active field")
+		assert.Contains(t, response, "last_audio_level", "Response must contain last_audio_level field")
+		assert.Contains(t, response, "last_audio_level_age_seconds", "Response must contain last_audio_level_age_seconds field")
+		assert.Contains(t, response, "detections_today", "Response must contain detections_today field")
 
 		// Check database status if present
 		if dbStatus, exists := response["database_status"]; exists {
@@ -136,6 +146,128 @@ func TestHealthCheck(t *testing.T) {
 
 	// Verify mock expectations
 	mockDS.AssertExpectations(t)
+}
+
+// TestHealthCheckEnhanced tests the enhanced health endpoint with audio state reporting
+func TestHealthCheckEnhanced(t *testing.T) {
+	t.Run("healthy_with_active_audio", func(t *testing.T) {
+		e, mockDS, controller := setupTestEnvironment(t)
+
+		// Setup mock expectations
+		mockDS.On("GetLastDetections", 1).Return([]datastore.Note{}, nil)
+		today := time.Now().Format("2006-01-02")
+		mockDS.On("CountHourlyDetections", today, "0", 24).Return(int64(42), nil)
+
+		// Simulate active audio with a non-zero level
+		controller.UpdateAudioHealth(75)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/health", http.NoBody)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		require.NoError(t, controller.HealthCheck(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+
+		// Audio health fields must be present with correct values
+		assert.Equal(t, "healthy", response["status"])
+		assert.Equal(t, true, response["audio_active"])
+		assert.InDelta(t, 75, response["last_audio_level"], 0)
+		assert.InDelta(t, 42, response["detections_today"], 0)
+
+		// Age should be very small (just set)
+		ageSeconds, ok := response["last_audio_level_age_seconds"].(float64)
+		require.True(t, ok, "last_audio_level_age_seconds should be a number")
+		assert.LessOrEqual(t, ageSeconds, float64(2), "Audio level age should be recent")
+
+		mockDS.AssertExpectations(t)
+	})
+
+	t.Run("degraded_with_silence", func(t *testing.T) {
+		e, mockDS, controller := setupTestEnvironment(t)
+
+		mockDS.On("GetLastDetections", 1).Return([]datastore.Note{}, nil)
+		today := time.Now().Format("2006-01-02")
+		mockDS.On("CountHourlyDetections", today, "0", 24).Return(int64(0), nil)
+
+		// Simulate silence (level 0, which means possible BOYA desync)
+		controller.UpdateAudioHealth(0)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/health", http.NoBody)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		require.NoError(t, controller.HealthCheck(c))
+
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+
+		assert.Equal(t, "degraded", response["status"], "Silence should report degraded status")
+		assert.Equal(t, true, response["audio_active"])
+		assert.InDelta(t, 0, response["last_audio_level"], 0)
+
+		mockDS.AssertExpectations(t)
+	})
+
+	t.Run("unhealthy_no_audio", func(t *testing.T) {
+		e, mockDS, controller := setupTestEnvironment(t)
+
+		mockDS.On("GetLastDetections", 1).Return([]datastore.Note{}, nil)
+		today := time.Now().Format("2006-01-02")
+		mockDS.On("CountHourlyDetections", today, "0", 24).Return(int64(0), nil)
+
+		// No audio health updates — audioActive remains false (default)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/health", http.NoBody)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		require.NoError(t, controller.HealthCheck(c))
+
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+
+		assert.Equal(t, "unhealthy", response["status"], "No audio data should report unhealthy")
+		assert.Equal(t, false, response["audio_active"])
+
+		mockDS.AssertExpectations(t)
+	})
+
+	t.Run("unhealthy_stale_audio", func(t *testing.T) {
+		e, mockDS, controller := setupTestEnvironment(t)
+
+		mockDS.On("GetLastDetections", 1).Return([]datastore.Note{}, nil)
+		today := time.Now().Format("2006-01-02")
+		mockDS.On("CountHourlyDetections", today, "0", 24).Return(int64(5), nil)
+
+		// Simulate stale audio data by setting the time far in the past
+		controller.audioHealthMu.Lock()
+		controller.lastAudioLevel = 50
+		controller.lastAudioLevelTime = time.Now().Add(-10 * time.Minute)
+		controller.audioActive = true
+		controller.audioHealthMu.Unlock()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/health", http.NoBody)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		require.NoError(t, controller.HealthCheck(c))
+
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+
+		assert.Equal(t, "unhealthy", response["status"], "Stale audio data should report unhealthy")
+		assert.Equal(t, true, response["audio_active"])
+
+		// Age should reflect the staleness
+		ageSeconds, ok := response["last_audio_level_age_seconds"].(float64)
+		require.True(t, ok, "last_audio_level_age_seconds should be a number")
+		assert.GreaterOrEqual(t, ageSeconds, float64(300), "Audio level age should be >= 5 minutes")
+
+		mockDS.AssertExpectations(t)
+	})
 }
 
 // TestHandleError tests error handling functionality

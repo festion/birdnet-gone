@@ -69,6 +69,9 @@ type audioLevelManager struct {
 	// Broadcaster lifecycle
 	broadcasterOnce   sync.Once
 	broadcasterCancel context.CancelFunc
+
+	// Health callback invoked on each audio level update for /health self-reporting
+	healthCallback func(level int)
 }
 
 // Maximum number of stream sources to cache in anonymization map
@@ -78,7 +81,7 @@ const maxStreamAnonymMapSize = 100
 // TODO: Consider moving to Controller struct for better encapsulation
 var audioLevelMgr = &audioLevelManager{
 	streamAnonymMap: make(map[string]string),
-	subscribers:   make(map[chan myaudio.AudioLevelData]struct{}),
+	subscribers:     make(map[chan myaudio.AudioLevelData]struct{}),
 }
 
 // SetAudioLevelChan sets the audio level channel for the controller and starts
@@ -94,6 +97,11 @@ var audioLevelMgr = &audioLevelManager{
 func (c *Controller) SetAudioLevelChan(ch chan myaudio.AudioLevelData) {
 	c.audioLevelChan = ch
 	c.logInfoIfEnabled("Audio level channel connected to API v2 controller")
+
+	// Register health callback so the broadcaster updates audio health on each data point
+	audioLevelMgr.healthCallback = func(level int) {
+		c.UpdateAudioHealth(level)
+	}
 
 	// Start the broadcaster goroutine (only once across all controller instances)
 	audioLevelMgr.broadcasterOnce.Do(func() {
@@ -120,6 +128,11 @@ func runAudioLevelBroadcaster(ctx context.Context, sourceChan chan myaudio.Audio
 				}
 				audioLevelMgr.subscribersMu.Unlock()
 				return
+			}
+
+			// Update audio health tracking for the /health endpoint
+			if cb := audioLevelMgr.healthCallback; cb != nil {
+				cb(data.Level)
 			}
 
 			// Fan out to all subscribers (non-blocking send)
