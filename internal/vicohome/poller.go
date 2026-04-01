@@ -61,7 +61,7 @@ func NewPoller(config conf.VicoHomeSettings, client EventFetcher, mqttPub MQTTPu
 	return &Poller{
 		config:       config,
 		client:       client,
-		publisher:    NewPublisher(mqttPub),
+		publisher:    NewPublisher(mqttPub, log),
 		log:          log,
 		today:        time.Now().Format("2006-01-02"),
 		cameraImages: make(map[string]string),

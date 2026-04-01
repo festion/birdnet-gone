@@ -2,8 +2,14 @@ package vicohome
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/tphakala/birdnet-go/internal/logger"
 )
 
 // MQTT topic and discovery constants matching the existing Python bridge.
@@ -67,14 +73,25 @@ type MQTTPublisher interface {
 	PublishWithRetain(ctx context.Context, topic, payload string, retain bool) error
 }
 
+// snapshotDownloadTimeout is the maximum time allowed for downloading a snapshot image.
+const snapshotDownloadTimeout = 10 * time.Second
+
 // Publisher handles publishing VicoHome detection data and HA discovery configs to MQTT.
 type Publisher struct {
-	client MQTTPublisher
+	client     MQTTPublisher
+	log        logger.Logger
+	httpClient *http.Client
 }
 
-// NewPublisher creates a new Publisher with the given MQTT client.
-func NewPublisher(client MQTTPublisher) *Publisher {
-	return &Publisher{client: client}
+// NewPublisher creates a new Publisher with the given MQTT client and logger.
+func NewPublisher(client MQTTPublisher, log logger.Logger) *Publisher {
+	return &Publisher{
+		client: client,
+		log:    log,
+		httpClient: &http.Client{
+			Timeout: snapshotDownloadTimeout,
+		},
+	}
 }
 
 // haDevice is the HA device info payload included in all discovery messages.
@@ -285,7 +302,60 @@ func (p *Publisher) PublishDetection(ctx context.Context, event *Event) error {
 		return fmt.Errorf("failed to publish to %s: %w", TopicDetection, err)
 	}
 
+	// Publish snapshot image (best-effort, errors are logged but don't fail the detection)
+	p.PublishSnapshot(ctx, imageURL)
+
 	return nil
+}
+
+// PublishSnapshot downloads an image from the given URL and publishes it as base64
+// to the snapshot MQTT topic with retain=true. If imageURL is empty, this is a no-op.
+// Download errors are logged as warnings but do not cause the method to return an error,
+// ensuring that snapshot failures never block detection publishing.
+func (p *Publisher) PublishSnapshot(ctx context.Context, imageURL string) {
+	if imageURL == "" {
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, http.NoBody)
+	if err != nil {
+		p.log.Warn("Failed to create snapshot request",
+			logger.String("url", imageURL),
+			logger.String("error_detail", err.Error()))
+		return
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		p.log.Warn("Failed to download snapshot",
+			logger.String("url", imageURL),
+			logger.String("error_detail", err.Error()))
+		return
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		p.log.Warn("Snapshot download returned non-200 status",
+			logger.String("url", imageURL),
+			logger.Int("status_code", resp.StatusCode))
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		p.log.Warn("Failed to read snapshot response body",
+			logger.String("url", imageURL),
+			logger.String("error_detail", err.Error()))
+		return
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(body)
+	if err := p.client.PublishWithRetain(ctx, TopicSnapshot, encoded, true); err != nil {
+		p.log.Warn("Failed to publish snapshot to MQTT",
+			logger.String("error_detail", err.Error()))
+	}
 }
 
 // PublishStats publishes the daily detection count.

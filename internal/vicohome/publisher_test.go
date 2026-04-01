@@ -2,14 +2,32 @@ package vicohome
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tphakala/birdnet-go/internal/logger"
 )
+
+// nopLogger is a no-op logger for tests that don't need to verify log output.
+type nopLogger struct{}
+
+func (nopLogger) Module(_ string) logger.Logger                      { return nopLogger{} }
+func (nopLogger) Trace(_ string, _ ...logger.Field)                  {}
+func (nopLogger) Debug(_ string, _ ...logger.Field)                  {}
+func (nopLogger) Info(_ string, _ ...logger.Field)                   {}
+func (nopLogger) Warn(_ string, _ ...logger.Field)                   {}
+func (nopLogger) Error(_ string, _ ...logger.Field)                  {}
+func (nopLogger) With(_ ...logger.Field) logger.Logger               { return nopLogger{} }
+func (nopLogger) WithContext(_ context.Context) logger.Logger        { return nopLogger{} }
+func (nopLogger) Log(_ logger.LogLevel, _ string, _ ...logger.Field) {}
+func (nopLogger) Flush() error                                       { return nil }
 
 // publishedMessage records a single MQTT publish call.
 type publishedMessage struct {
@@ -76,7 +94,7 @@ func (m *mockMQTTPublisher) findByTopic(topic string) *publishedMessage {
 
 func TestPublishDiscovery(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishDiscovery(context.Background())
 	require.NoError(t, err)
@@ -150,7 +168,7 @@ func TestPublishDiscovery(t *testing.T) {
 
 func TestPublishDetection(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	event := &Event{
 		TraceID:        "trace-001",
@@ -198,7 +216,7 @@ func TestPublishDetection(t *testing.T) {
 
 func TestPublishDetection_FallbackToImageURL(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	event := &Event{
 		TraceID:    "trace-002",
@@ -218,7 +236,7 @@ func TestPublishDetection_FallbackToImageURL(t *testing.T) {
 
 func TestPublishStats(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishStats(context.Background(), 42)
 	require.NoError(t, err)
@@ -237,7 +255,7 @@ func TestPublishStats(t *testing.T) {
 
 func TestPublishOnline(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishOnline(context.Background())
 	require.NoError(t, err)
@@ -251,7 +269,7 @@ func TestPublishOnline(t *testing.T) {
 
 func TestPublishOffline(t *testing.T) {
 	mock := newMockMQTTPublisher()
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishOffline(context.Background())
 	require.NoError(t, err)
@@ -266,7 +284,7 @@ func TestPublishOffline(t *testing.T) {
 func TestPublishDiscovery_ErrorPropagation(t *testing.T) {
 	mock := newMockMQTTPublisher()
 	mock.err = fmt.Errorf("connection lost")
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishDiscovery(context.Background())
 	require.Error(t, err)
@@ -276,9 +294,73 @@ func TestPublishDiscovery_ErrorPropagation(t *testing.T) {
 func TestPublishDetection_ErrorPropagation(t *testing.T) {
 	mock := newMockMQTTPublisher()
 	mock.err = fmt.Errorf("broker unreachable")
-	pub := NewPublisher(mock)
+	pub := NewPublisher(mock, nopLogger{})
 
 	err := pub.PublishDetection(context.Background(), &Event{BirdName: "test"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "broker unreachable")
+}
+
+func TestPublishSnapshot(t *testing.T) {
+	// Set up a test HTTP server that returns a known image payload
+	imageData := []byte("fake-png-image-data")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(imageData)
+	}))
+	defer server.Close()
+
+	mqttMock := newMockMQTTPublisher()
+	pub := NewPublisher(mqttMock, nopLogger{})
+
+	pub.PublishSnapshot(context.Background(), server.URL+"/snapshot.png")
+
+	// Verify the snapshot was published to the correct topic with retain
+	snapshotMsg := mqttMock.findByTopic(TopicSnapshot)
+	require.NotNil(t, snapshotMsg, "snapshot should be published to %s", TopicSnapshot)
+	assert.True(t, snapshotMsg.retain, "snapshot should be retained")
+
+	// Verify the payload is the base64-encoded image data
+	expectedPayload := base64.StdEncoding.EncodeToString(imageData)
+	assert.Equal(t, expectedPayload, snapshotMsg.payload)
+}
+
+func TestPublishSnapshot_EmptyURL(t *testing.T) {
+	mqttMock := newMockMQTTPublisher()
+	pub := NewPublisher(mqttMock, nopLogger{})
+
+	pub.PublishSnapshot(context.Background(), "")
+
+	// No messages should be published for an empty URL
+	messages := mqttMock.getMessages()
+	assert.Empty(t, messages, "empty URL should not produce any MQTT messages")
+}
+
+func TestPublishSnapshot_DownloadError(t *testing.T) {
+	// Use a URL that will fail to connect
+	mqttMock := newMockMQTTPublisher()
+	pub := NewPublisher(mqttMock, nopLogger{})
+
+	pub.PublishSnapshot(context.Background(), "http://127.0.0.1:1/nonexistent")
+
+	// No messages should be published when download fails
+	messages := mqttMock.getMessages()
+	assert.Empty(t, messages, "failed download should not produce any MQTT messages")
+}
+
+func TestPublishSnapshot_Non200Status(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	mqttMock := newMockMQTTPublisher()
+	pub := NewPublisher(mqttMock, nopLogger{})
+
+	pub.PublishSnapshot(context.Background(), server.URL+"/missing.png")
+
+	// No messages should be published for non-200 responses
+	messages := mqttMock.getMessages()
+	assert.Empty(t, messages, "non-200 response should not produce any MQTT messages")
 }
