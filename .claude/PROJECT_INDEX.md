@@ -1,38 +1,38 @@
 # Project Index: birdnet-gone
 
 ## 1. Core Purpose
-The `birdnet-gone` project appears to be a comprehensive system for real-time bird sound detection, analysis, and visualization. It integrates a Go-based backend with a web frontend, a Python-based local display/kiosk application, and potentially embedded firmware components, aiming to provide an accessible platform for environmental sound monitoring and bird identification.
+The `birdnet-gone` project appears to be an application focused on bird sound detection and analysis. It integrates a Go backend with a web-based frontend, potentially including real-time audio processing, data storage, and visualization. The project also seems to support embedded systems (ESP32) for audio capture or streaming and offers command-line tools for various functionalities.
 
 ## 2. Architecture
-The codebase follows a multi-component architecture:
--   **Backend (Go):** The core application logic resides in `main.go`, `cmd/`, and `internal/`. It handles audio analysis, data storage, API services, MQTT communication, and notifications.
--   **Frontend (Svelte/Vite):** Located in `frontend/`, this is a modern web application built with Svelte and managed by Vite, providing a user interface for interaction and data display.
--   **Display Application (Python):** The `display/` directory contains Python scripts and related files for a dedicated local display or kiosk mode, potentially for physical installations like Raspberry Pi devices.
--   **Containerization:** `Docker/` and `Podman/` directories, along with `Dockerfile` and `docker-compose.yml`, indicate robust support for containerized deployments.
--   **Embedded Systems:** `firmware/` suggests the project interacts with or provides firmware for embedded devices (e.g., ESP32) for audio capture or other functionalities.
--   **Virtual Machines:** `vm-images/` provides infrastructure for building and deploying virtual machine images, offering another deployment method.
+The codebase exhibits a multi-component architecture:
+- **Go Backend:** The core logic, API services, and CLI commands are implemented in Go, organized under `cmd/` and `internal/` directories. This includes modules for analysis, API, birdnet integration, data storage, monitoring, MQTT, audio processing, notifications, and spectrogram generation.
+- **Svelte/Vite Frontend:** A web-based user interface is developed using Svelte and Vite, located in the `frontend/` directory, providing interactive data visualization and control.
+- **Python Components:** Auxiliary Python scripts are found in `display/` (possibly for visualization or post-processing) and `vicohome-bridge/` (suggesting integration with smart home devices).
+- **Embedded Firmware:** The `firmware/` directory contains code for ESP32 devices, indicating hardware integration for audio acquisition or related tasks.
+- **Containerization:** The project leverages Docker and Podman (`Docker/`, `Podman/`, `Dockerfile`, `docker-compose.yml`) for consistent deployment and environment management.
+- **Documentation & Tools:** Comprehensive documentation (`doc/`, `docs/`) and various scripts (`scripts/`) support development, debugging, and deployment.
 
 ## 3. Key Files
--   `ARCHITECTURE.md`: High-level architectural overview of the project.
--   `main.go`: Entry point for the main Go application.
--   `go.mod`, `go.sum`: Go module definition and dependency lock file.
--   `frontend/package.json`: Frontend project dependencies and scripts.
--   `frontend/src/`: Source code for the Svelte frontend application.
--   `display/birdnet_display.py`: Main script for the Python display application.
--   `display/requirements.txt`: Python dependencies for the display application.
--   `Dockerfile`, `docker-compose.yml`: Docker configurations for building and orchestrating services.
--   `Podman/podman-compose.yml`: Podman configurations for container orchestration.
--   `internal/`: Contains core Go packages for various functionalities (e.g., `analysis`, `api`, `birdnet`, `datastore`, `mqtt`).
--   `cmd/`: Defines command-line interface subcommands.
--   `install.sh`, `podman-install.sh`: Installation scripts for the project.
--   `vm-images/`: Contains Packer templates and scripts for building VM images.
--   `LICENSES.md`: Project licensing information.
--   `CONTRIBUTING.md`: Guidelines for contributing to the project.
--   `README.md`: General project overview and setup instructions.
+- `main.go`: The main entry point for the Go application.
+- `go.mod`, `go.sum`: Go module dependency definitions.
+- `frontend/index.html`: The main entry point for the web frontend.
+- `frontend/package.json`, `frontend/package-lock.json`: Frontend dependency management.
+- `Dockerfile`: Defines the Docker image for the application.
+- `docker-compose.yml`: Docker Compose configuration for multi-container deployment.
+- `Podman/podman-compose.yml`: Podman Compose configuration.
+- `ARCHITECTURE.md`: Provides high-level architectural overview.
+- `CONTRIBUTING.md`: Guidelines for contributing to the project.
+- `README.md`: General project overview and setup instructions.
+- `internal/`: Contains core Go packages and business logic.
+- `cmd/`: Defines the command-line interface structure and commands.
+- `display/birdnet_display_original.py`: A Python script likely for displaying BirdNET results.
+- `vicohome-bridge/vicohome_bridge.py`: Python script for integrating with VicoHome.
+- `vm-images/`: Contains resources for building virtual machine images.
+- `scripts/`: Various utility scripts for analysis, health checks, and data collection.
 
 ## 4. Dependencies
--   **Go:** Managed via `go.mod` and `go.sum`.
--   **Node.js/JavaScript:** For the frontend, managed by `frontend/package.json` and `frontend/package-lock.json` (Svelte, Vite, various npm packages).
--   **Python:** For the `display/` and `vicohome-bridge/` components, dependencies are listed in `display/requirements.txt` and `vicohome-bridge/requirements.txt` respectively.
--   **Docker/Podman:** For containerization, relying on standard Docker/Podman tools and images.
--   **Packer:** For `vm-images/` to build virtual machine images.
+- **Go Modules:** Managed by `go.mod` and `go.sum`.
+- **NPM Packages:** For the frontend, managed by `frontend/package.json` and `frontend/package-lock.json`.
+- **Python Packages:** For `vicohome-bridge/`, managed by `vicohome-bridge/requirements.txt`.
+- **Container Runtimes:** Docker or Podman for deployment.
+- **System Dependencies:** Potentially various system libraries and tools, depending on the Go and Python components.
