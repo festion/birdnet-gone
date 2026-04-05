@@ -28,15 +28,13 @@
 </script>
 
 <div class="bird-card">
-  <div class="bird-card-image">
-    {#if imageUrl}
-      <img src={imageUrl} alt={species} onerror={handleImageError} />
-    {:else}
-      <div class="bird-card-placeholder">{species.charAt(0)}</div>
-    {/if}
-    <div class="bird-card-confidence">
-      {confidence}%
-    </div>
+  {#if imageUrl}
+    <img src={imageUrl} alt={species} onerror={handleImageError} />
+  {:else}
+    <div class="bird-card-placeholder">{species.charAt(0)}</div>
+  {/if}
+  <div class="bird-card-confidence">
+    {confidence}%
   </div>
   <div class="bird-card-info">
     <div class="bird-card-name">{species}</div>
@@ -53,20 +51,14 @@
     background-color: #1f2937;
     border-radius: 0.5rem;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
 
-  .bird-card-image {
-    flex: 1;
-    position: relative;
-    min-height: 0;
-  }
-
-  .bird-card-image img {
+  .bird-card img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
+    object-position: top;
+    display: block;
   }
 
   .bird-card-placeholder {
@@ -90,11 +82,16 @@
     font-size: 0.875rem;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
+    z-index: 1;
   }
 
   .bird-card-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     padding: 0.5rem;
-    background-color: rgba(31, 41, 55, 0.9);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   }
 
   .bird-card-name {
