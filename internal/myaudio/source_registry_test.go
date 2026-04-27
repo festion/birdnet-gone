@@ -706,8 +706,13 @@ func TestSourceLifecycle(t *testing.T) {
 	_, exists = registry.GetSourceByConnection(testURL)
 	assert.False(t, exists, "Connection mapping should be removed")
 
-	// Verify we can re-register the same URL
+	// Verify we can re-register the same URL.
+	// The fork's deterministic-ID patch (a953b18d) hashes the connection string
+	// to produce stable IDs across registration cycles — this prevents stale
+	// MQTT discovery configs from accumulating in Home Assistant. The upstream
+	// test asserted a different ID; on this fork, identical inputs MUST yield
+	// the same ID.
 	newSource := registry.GetOrCreateSource(testURL, SourceTypeRTSP)
 	require.NotNil(t, newSource, "Should be able to re-register URL")
-	assert.NotEqual(t, sourceID, newSource.ID, "New source should have different ID")
+	assert.Equal(t, sourceID, newSource.ID, "Re-registered source must reuse the deterministic ID")
 }
