@@ -292,6 +292,9 @@ func RealtimeAnalysis(settings *conf.Settings) error {
 		startWeatherPolling(&wg, settings, dataStore, metrics, quitChan)
 	}
 
+	// start VicoHome cloud camera polling (no-op when disabled or unconfigured)
+	startVicoHomePolling(&wg, settings, proc.GetMQTTClient(), quitChan)
+
 	// Telemetry endpoint initialization is handled by control monitor for hot reload support.
 	// Unlike other services that start directly here, telemetry is managed by the control monitor
 	// to allow users to dynamically enable/disable metrics and change the listen address without
