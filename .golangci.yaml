@@ -87,6 +87,11 @@ linters:
         - pattern: 'logger\.String\(\s*"(?i)[^"]*(email|e-mail|mail)[^"]*"'
           msg: "Use logger.SanitizedString() for email fields to redact sensitive data"
       analyze-types: false
+  exclusions:
+    # Skip third-party Go sources vendored under node_modules (e.g. flatted's
+    # Go reference implementation). Linting them produces noise we cannot fix.
+    paths:
+      - frontend/node_modules
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
