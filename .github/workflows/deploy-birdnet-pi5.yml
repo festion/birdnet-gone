@@ -94,7 +94,7 @@ jobs:
           file bin/birdnet-go | grep -q "ARM aarch64" || { echo "Binary is not ARM aarch64"; exit 1; }
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: birdnet-go-linux_arm64
           path: bin/birdnet-go
@@ -114,7 +114,7 @@ jobs:
       SSH_OPTS: "-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
     steps:
       - name: Download binary artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: birdnet-go-linux_arm64
           path: ./artifact
