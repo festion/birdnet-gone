@@ -339,7 +339,7 @@ func (m *Manager) RunBackup(ctx context.Context) error {
 
 // processBackupSource handles the backup process for a single source
 func (m *Manager) processBackupSource(ctx context.Context, sourceName string, source Source, timestamp time.Time, isDaily, isWeekly bool) ([]string, error) {
-	var tempDirs []string // Track temp dirs created in this function
+	tempDirs := make([]string, 0, 1) // Track temp dirs created in this function
 
 	// 1. Perform the actual backup from the source
 	m.logger.Debug("Starting source backup", logger.String("source_name", sourceName))
@@ -856,7 +856,10 @@ func (m *Manager) encryptArchive(ctx context.Context, sourcePath, destPath strin
 		return fmt.Errorf("failed during data encryption: %w", err)
 	}
 
-	// Write encrypted data to destination file
+	// Write encrypted data to destination file. destPath is built by the
+	// backup framework as archivePath + ".enc"; archivePath is composed from
+	// internal source/timestamp values, not user input.
+	//nolint:gosec // G703: destPath is internally constructed, not from user input
 	err = os.WriteFile(destPath, ciphertext, PermSecureFile) // Secure permissions
 	if err != nil {
 		return errors.New(err).

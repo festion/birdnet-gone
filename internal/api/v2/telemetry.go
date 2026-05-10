@@ -11,11 +11,11 @@ import (
 
 // TelemetryLogRequest represents a client-side log/error report
 type TelemetryLogRequest struct {
-	Level    string                 `json:"level"`    // Log level (debug, info, warn, error)
-	Category string                 `json:"category"` // Logger category
-	Message  string                 `json:"message"`  // Error/log message
-	Stack    string                 `json:"stack"`    // Stack trace (for errors)
-	Context  map[string]interface{} `json:"context"`  // Additional context
+	Level    string         `json:"level"`    // Log level (debug, info, warn, error)
+	Category string         `json:"category"` // Logger category
+	Message  string         `json:"message"`  // Error/log message
+	Stack    string         `json:"stack"`    // Stack trace (for errors)
+	Context  map[string]any `json:"context"`  // Additional context
 }
 
 // initTelemetryRoutes registers telemetry-related routes
@@ -85,7 +85,7 @@ func (c *Controller) LogTelemetry(ctx echo.Context) error {
 		)
 	}
 
-	return ctx.JSON(http.StatusOK, map[string]interface{}{
+	return ctx.JSON(http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Telemetry logged successfully",
 	})

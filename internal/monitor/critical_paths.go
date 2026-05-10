@@ -103,10 +103,11 @@ func deduplicatePaths(paths []string) []string {
 
 // mergePaths combines user-configured paths with auto-detected critical paths
 func mergePaths(configured, critical []string) []string {
-	// Start with configured paths
-	allPaths := make([]string, len(configured))
+	// Start with configured paths (preallocate full final capacity to avoid
+	// reallocation when appending critical paths)
+	allPaths := make([]string, len(configured), len(configured)+len(critical))
 	copy(allPaths, configured)
-	
+
 	// Add critical paths
 	allPaths = append(allPaths, critical...)
 	

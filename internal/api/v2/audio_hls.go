@@ -137,9 +137,10 @@ func (c *Controller) initHLSRoutes() {
 	hlsGroup.GET("/:sourceID/playlist.m3u8", c.ServeHLSPlaylist)
 	hlsGroup.GET("/:sourceID/*", c.ServeHLSContent)
 
-	// Start the HLS activity sync goroutine (only once across all controller instances)
+	// Start the HLS activity sync goroutine (only once across all controller instances).
+	// The cancel func is retained on hlsMgr.activitySyncCancel for shutdown to call.
 	hlsMgr.activitySyncOnce.Do(func() {
-		ctx, cancel := context.WithCancel(c.ctx)
+		ctx, cancel := context.WithCancel(c.ctx) //nolint:gosec // G118: cancel is stored on hlsMgr for shutdown
 		hlsMgr.activitySyncCancel = cancel
 		go runHLSActivitySync(ctx)
 	})

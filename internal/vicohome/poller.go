@@ -3,6 +3,7 @@ package vicohome
 import (
 	"context"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -143,8 +144,9 @@ func (p *Poller) poll(ctx context.Context) {
 		return
 	}
 
-	// Publish in chronological order (oldest first)
-	for i := len(newEvents) - 1; i >= 0; i-- {
+	// Publish in chronological order (oldest first). Iterate by index to
+	// avoid copying each 144-byte Event struct.
+	for i := range slices.Backward(newEvents) {
 		event := &newEvents[i]
 		if event.BirdName == "" {
 			continue // Skip non-bird motion events

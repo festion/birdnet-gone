@@ -299,6 +299,7 @@ type mockTransport struct {
 func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Create a new request to the test server with the same body and headers
 	testURL := t.server.URL
+	//nolint:gosec // G704: testURL is the local httptest.Server URL — no SSRF risk in test
 	newReq, err := http.NewRequest(req.Method, testURL, req.Body)
 	if err != nil {
 		return nil, err

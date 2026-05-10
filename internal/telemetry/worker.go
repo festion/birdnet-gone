@@ -297,7 +297,8 @@ func (w *TelemetryWorker) shouldSample(event events.ErrorEvent) bool {
 func hashString(s string) uint32 {
 	var h uint32
 	for _, c := range s {
-		h = h*hashMultiplier + uint32(c)
+		// Valid runes range from 0 to 0x10FFFF, always within uint32.
+		h = h*hashMultiplier + uint32(c) //nolint:gosec // G115: rune is always a valid unicode code point ≤ 0x10FFFF
 	}
 	return h
 }
