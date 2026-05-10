@@ -141,8 +141,14 @@ jobs:
           echo "current version: ${CUR_VER}"
 
       - name: Stop service and kill orphans
+        # CRITICAL: do NOT use `pkill -f 'birdnet-go realtime'` here — the
+        # search pattern would match this very wrapper bash's own cmdline
+        # (because the pattern travels through the ssh command), and pkill
+        # would kill its own parent shell. SSH then drops exit 255 as the
+        # service finishes stopping. Use exact-name match instead so only
+        # actual birdnet-go processes match.
         run: |
-          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo systemctl stop ${SERVICE} && sudo pkill -9 -f 'birdnet-go realtime' 2>/dev/null || true"
+          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo systemctl stop ${SERVICE} && sudo pkill -9 -x birdnet-go 2>/dev/null || true"
 
       - name: Backup current binary and install new
         env:
