@@ -292,6 +292,7 @@ func (t *GDriveTarget) saveToken(token *oauth2.Token) error {
 			t.log.Info(fmt.Sprintf("gdrive: failed to close file: %v", err))
 		}
 	}()
+	//nolint:gosec // G117: persisting the oauth token to the user's credential cache is the entire purpose of this function; file is created with PermFile (0600).
 	return json.NewEncoder(f).Encode(token)
 }
 

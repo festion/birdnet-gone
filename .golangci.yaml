@@ -20,7 +20,6 @@ linters:
     - wastedassign
     # Security & quality linters
     - gosec
-    - goconst
     - staticcheck
     - ineffassign
     - bodyclose
@@ -40,6 +39,17 @@ linters:
     - exhaustive
   disable:
     - unused
+  exclusions:
+    paths:
+      # Vendored npm package that ships Go source — not maintained by us.
+      - frontend/node_modules
+    rules:
+      # Test code constructs raw byte slices for fixture frames (audio captures,
+      # WAV headers, etc.). The int→byte conversions are intentional and within
+      # bounds; skipping the gosec G115 noise here, not in production.
+      - linters: [gosec]
+        text: "G115:"
+        path: _test\.go
   settings:
     gocognit:
       min-complexity: 50

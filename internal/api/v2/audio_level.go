@@ -103,9 +103,10 @@ func (c *Controller) SetAudioLevelChan(ch chan myaudio.AudioLevelData) {
 		c.UpdateAudioHealth(level)
 	}
 
-	// Start the broadcaster goroutine (only once across all controller instances)
+	// Start the broadcaster goroutine (only once across all controller instances).
+	// The cancel func is retained on audioLevelMgr for shutdown to call.
 	audioLevelMgr.broadcasterOnce.Do(func() {
-		ctx, cancel := context.WithCancel(c.ctx)
+		ctx, cancel := context.WithCancel(c.ctx) //nolint:gosec // G118: cancel is stored on audioLevelMgr for shutdown
 		audioLevelMgr.broadcasterCancel = cancel
 		go runAudioLevelBroadcaster(ctx, ch)
 	})

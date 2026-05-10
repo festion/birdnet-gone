@@ -359,8 +359,8 @@ func TestCircuitBreaker_ConcurrentFailureAndReset(t *testing.T) {
 	stream := NewFFmpegStream("rtsp://test.local/concurrent", "tcp", audioChan)
 
 	var wg sync.WaitGroup
-	var failureCount int32
-	var resetCount int32
+	var failureCount atomic.Int32
+	var resetCount atomic.Int32
 
 	// Number of operations to perform - using prime numbers to avoid patterns
 	const numFailures = 7
@@ -376,7 +376,7 @@ func TestCircuitBreaker_ConcurrentFailureAndReset(t *testing.T) {
 			// Use 100ms runtime - this is less than circuitBreakerImmediateRuntime (1s)
 			// so it should trigger the immediate threshold (3 failures)
 			stream.recordFailure(100 * time.Millisecond)
-			atomic.AddInt32(&failureCount, 1)
+			failureCount.Add(1)
 			// Small yield to allow interleaving with resets
 			runtime.Gosched()
 		}
@@ -389,7 +389,7 @@ func TestCircuitBreaker_ConcurrentFailureAndReset(t *testing.T) {
 		<-startBarrier // Wait for signal to start
 		for range numResets {
 			stream.resetFailures()
-			atomic.AddInt32(&resetCount, 1)
+			resetCount.Add(1)
 			// Small yield to allow interleaving with failures
 			runtime.Gosched()
 		}
@@ -403,8 +403,8 @@ func TestCircuitBreaker_ConcurrentFailureAndReset(t *testing.T) {
 
 	// Get final state
 	finalFailures := stream.getConsecutiveFailures()
-	totalFailures := atomic.LoadInt32(&failureCount)
-	totalResets := atomic.LoadInt32(&resetCount)
+	totalFailures := failureCount.Load()
+	totalResets := resetCount.Load()
 	isOpen := stream.isCircuitOpen()
 
 	t.Logf("Test results:")

@@ -404,7 +404,7 @@ func handleFieldByType(
 	}
 
 	// For fields that are pointers to structs
-	if currentField.Kind() == reflect.Ptr && updatedField.Kind() == reflect.Ptr {
+	if currentField.Kind() == reflect.Pointer && updatedField.Kind() == reflect.Pointer {
 		return handlePointerField(currentField, updatedField, fieldPath, blockedSubfields, skippedFields)
 	}
 
@@ -1860,4 +1860,3 @@ func (c *Controller) GetSystemID(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, response)
 }
-

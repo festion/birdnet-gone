@@ -619,8 +619,9 @@ func (s *OAuth2Server) ExchangeAuthCode(ctx context.Context, code string) (strin
 
 	if time.Now().After(authCode.ExpiresAt) {
 		secLog.Warn("Authorization code expired", logger.Time("expired_at", authCode.ExpiresAt))
-		delete(s.authCodes, code)     // Clean up expired code
-		go s.persistTokensIfEnabled() // Persist removal
+		delete(s.authCodes, code) // Clean up expired code
+		//nolint:gosec // G118: fire-and-forget disk persistence, no context to plumb
+		go s.persistTokensIfEnabled()
 		return "", errors.New("authorization code expired")
 	}
 
@@ -644,7 +645,8 @@ func (s *OAuth2Server) ExchangeAuthCode(ctx context.Context, code string) (strin
 
 	// Do not log the accessToken
 	secLog.Info("Exchanged authorization code for new access token", logger.Time("expires_at", expiresAt))
-	go s.persistTokensIfEnabled() // Persist changes
+	//nolint:gosec // G118: fire-and-forget disk persistence, no context to plumb
+	go s.persistTokensIfEnabled()
 	return accessToken, nil
 }
 

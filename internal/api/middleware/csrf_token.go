@@ -17,12 +17,16 @@ import (
 // This helper ensures consistent cookie configuration across all code paths.
 func setCSRFCookie(ctx echo.Context, token string) {
 	isSecure := IsSecureRequest(ctx.Request())
-	cookie := &http.Cookie{
+	// HttpOnly is intentionally false: the SPA reads this cookie value and
+	// echoes it in the X-CSRF-Token header to defeat CSRF. Secure follows
+	// the request scheme so plain-HTTP development still works. SameSite=Lax
+	// is required for the OAuth redirect flow (Strict would break sign-in).
+	cookie := &http.Cookie{ //nolint:gosec // G124: HttpOnly false is by design for SPA double-submit pattern
 		Name:     csrfCookieName,
 		Value:    token,
 		Path:     "/",
 		MaxAge:   csrfCookieMaxAge,
-		HttpOnly: false, // Allow JS to read for SPA usage
+		HttpOnly: false,
 		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 	}

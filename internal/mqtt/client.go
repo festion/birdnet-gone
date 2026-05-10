@@ -41,10 +41,10 @@ type client struct {
 	reconnectTimer    *time.Timer
 	reconnectStop     chan struct{}
 	metrics           *metrics.MQTTMetrics
-	controlChan       chan string           // Channel for control signals
-	onConnectHandlers []OnConnectHandler    // Handlers called on successful connection
+	controlChan       chan string        // Channel for control signals
+	onConnectHandlers []OnConnectHandler // Handlers called on successful connection
 	// Exponential backoff state
-	currentBackoff    time.Duration         // Current backoff delay (grows with each failed attempt)
+	currentBackoff time.Duration // Current backoff delay (grows with each failed attempt)
 }
 
 // NewClient creates a new MQTT client with the provided configuration.
@@ -940,11 +940,9 @@ func (c *client) reconnectWithBackoff() {
 			c.currentBackoff = c.config.ReconnectDelay
 		}
 		// Calculate next backoff with multiplier
-		nextBackoff := time.Duration(float64(c.currentBackoff) * c.config.ReconnectMultiplier)
-		// Cap at MaxReconnectDelay to prevent unbounded growth
-		if nextBackoff > c.config.MaxReconnectDelay {
-			nextBackoff = c.config.MaxReconnectDelay
-		}
+		nextBackoff := min(
+			// Cap at MaxReconnectDelay to prevent unbounded growth
+			time.Duration(float64(c.currentBackoff)*c.config.ReconnectMultiplier), c.config.MaxReconnectDelay)
 		c.currentBackoff = nextBackoff
 		GetLogger().Info("Exponential backoff applied", logger.Duration("next_delay", c.currentBackoff), logger.Duration("max_delay", c.config.MaxReconnectDelay))
 		c.mu.Unlock()
