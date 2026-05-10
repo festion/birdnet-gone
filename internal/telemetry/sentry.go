@@ -181,13 +181,6 @@ func applyPrivacyFilters(event *sentry.Event) *sentry.Event {
 		delete(event.Contexts, "runtime")
 	}
 
-	// Remove extra fields except allowed ones
-	for k := range event.Extra {
-		if k != "error_type" && k != "component" {
-			delete(event.Extra, k)
-		}
-	}
-
 	// Remove sensitive tags
 	if event.Tags != nil {
 		delete(event.Tags, "server_name")
@@ -222,11 +215,6 @@ func applyPrivacyFiltersWithLogging(event *sentry.Event) *sentry.Event {
 		filtersApplied = append(filtersApplied, contextsRemoved...)
 	}
 
-	// Handle extra fields with tracking
-	if extraRemoved := removePrivacyExtraFields(event.Extra); extraRemoved > 0 {
-		filtersApplied = append(filtersApplied, fmt.Sprintf("remove_%d_extra_fields", extraRemoved))
-	}
-
 	// Handle tags with tracking
 	if event.Tags != nil {
 		tagsRemoved := removePrivacyTags(event.Tags)
@@ -247,7 +235,6 @@ func logEventBeforeFiltering(event *sentry.Event) {
 		logger.Bool("has_user_data", !event.User.IsEmpty()),
 		logger.Bool("has_server_name", event.ServerName != ""),
 		logger.Int("contexts_count", len(event.Contexts)),
-		logger.Int("extra_count", len(event.Extra)),
 		logger.Int("tags_count", len(event.Tags)))
 }
 
@@ -258,7 +245,6 @@ func logEventAfterFiltering(event *sentry.Event, filtersApplied []string) {
 		logger.Any("event_id", event.EventID),
 		logger.Any("filters_applied", filtersApplied),
 		logger.Int("remaining_contexts", len(event.Contexts)),
-		logger.Int("remaining_extra", len(event.Extra)),
 		logger.Int("remaining_tags", len(event.Tags)))
 }
 
@@ -271,24 +257,6 @@ func removePrivacyContexts(contexts map[string]sentry.Context) []string {
 		if _, exists := contexts[key]; exists {
 			removed = append(removed, fmt.Sprintf("remove_%s_context", key))
 			delete(contexts, key)
-		}
-	}
-
-	return removed
-}
-
-// removePrivacyExtraFields removes sensitive extra fields and returns count
-func removePrivacyExtraFields(extra map[string]any) int {
-	removed := 0
-	allowedFields := map[string]bool{
-		"error_type": true,
-		"component":  true,
-	}
-
-	for k := range extra {
-		if !allowedFields[k] {
-			removed++
-			delete(extra, k)
 		}
 	}
 
@@ -573,8 +541,9 @@ func CaptureError(err error, component string) {
 
 		scope.SetTag("component", component)
 		scope.SetTag("error_title", errorTitle)
-		// Add parsed error type to extras for easier filtering in Sentry
-		scope.SetExtra("error_type", errorType)
+		// Add parsed error type as a tag for easier filtering in Sentry
+		// (Migrated from SetExtra in sentry-go v0.46 — Extra was removed upstream.)
+		scope.SetTag("error_type", errorType)
 		scope.SetContext("error", map[string]any{
 			"type":             fmt.Sprintf("%T", err),
 			"scrubbed_message": scrubbedErrorMsg,

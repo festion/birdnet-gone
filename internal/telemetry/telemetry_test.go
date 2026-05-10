@@ -173,19 +173,16 @@ func TestEventSummaries(t *testing.T) {
 		message string
 		level   sentry.Level
 		tags    map[string]string
-		extra   map[string]any
 	}{
 		{
 			message: "Info event",
 			level:   sentry.LevelInfo,
-			tags:    map[string]string{"component": "test", "version": "1.0"},
-			extra:   map[string]any{"count": 42},
+			tags:    map[string]string{"component": "test", "version": "1.0", "count": "42"},
 		},
 		{
 			message: "Error event",
 			level:   sentry.LevelError,
-			tags:    map[string]string{"component": "api"},
-			extra:   map[string]any{"endpoint": "/test"},
+			tags:    map[string]string{"component": "api", "endpoint": "/test"},
 		},
 	}
 
@@ -194,7 +191,6 @@ func TestEventSummaries(t *testing.T) {
 			Message:   e.message,
 			Level:     e.level,
 			Tags:      e.tags,
-			Extra:     e.extra,
 			Timestamp: time.Now(),
 		}
 		transport.SendEvent(event)
@@ -203,22 +199,13 @@ func TestEventSummaries(t *testing.T) {
 	summaries := transport.GetEventSummaries()
 	require.Len(t, summaries, len(events), "Expected summaries for all events")
 
-	// Verify first summary
+	// Verify first summary round-trips Tags through EventSummary
 	s := summaries[0]
 	assert.Equal(t, "Info event", s.Message, "Expected message 'Info event'")
 	assert.Equal(t, "info", s.Level, "Expected level 'info'")
 	assert.Equal(t, "test", s.Tags["component"], "Expected tag component='test'")
-
-	count := s.Extra["count"]
-	switch v := count.(type) {
-	case float64:
-		assert.InDelta(t, float64(42), v, 0.001, "Expected extra count=42")
-	case int:
-		assert.Equal(t, 42, v, "Expected extra count=42")
-	default:
-		assert.Fail(t, "unexpected type for count",
-			"Expected extra count to be numeric, got %T: %v", count, count)
-	}
+	assert.Equal(t, "1.0", s.Tags["version"], "Expected tag version='1.0'")
+	assert.Equal(t, "42", s.Tags["count"], "Expected tag count='42'")
 }
 
 func TestConcurrentAccess(t *testing.T) {
