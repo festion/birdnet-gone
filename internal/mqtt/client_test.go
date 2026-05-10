@@ -918,8 +918,9 @@ func TestPerformDNSResolution(t *testing.T) {
 			expectError: false,
 		},
 		{
+			// Trailing dot = FQDN absolute name; bypasses /etc/resolv.conf search-list expansion.
 			name:        "Invalid hostname",
-			broker:      "tcp://this-hostname-does-not-exist.invalid:1883",
+			broker:      "tcp://this-hostname-does-not-exist.invalid.:1883",
 			expectError: true,
 			errorSubstr: "no such host",
 		},
