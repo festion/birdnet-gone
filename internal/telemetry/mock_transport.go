@@ -159,12 +159,11 @@ func (t *MockTransport) GetEventMessages() []string {
 
 // EventSummary provides a simplified view of an event for testing
 type EventSummary struct {
-	Message     string                 `json:"message"`
-	Level       string                 `json:"level"`
-	Tags        map[string]string      `json:"tags"`
-	Extra       map[string]any `json:"extra"`
-	Fingerprint []string               `json:"fingerprint"`
-	Timestamp   time.Time              `json:"timestamp"`
+	Message     string            `json:"message"`
+	Level       string            `json:"level"`
+	Tags        map[string]string `json:"tags"`
+	Fingerprint []string          `json:"fingerprint"`
+	Timestamp   time.Time         `json:"timestamp"`
 }
 
 // GetEventSummaries returns simplified summaries of all events
@@ -178,7 +177,6 @@ func (t *MockTransport) GetEventSummaries() []EventSummary {
 			Message:     event.Message,
 			Level:       string(event.Level),
 			Tags:        event.Tags,
-			Extra:       event.Extra,
 			Fingerprint: event.Fingerprint,
 			Timestamp:   event.Timestamp,
 		}
