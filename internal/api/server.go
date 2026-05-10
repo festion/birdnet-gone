@@ -415,6 +415,17 @@ func (s *Server) APIController() *apiv2.Controller {
 	return s.apiController
 }
 
+// SetVicoHomeImageProvider wires (or replaces) the running VicoHome poller into
+// the v2 API controller. Called by the realtime startup sequence after the
+// poller is constructed; safe to call from any goroutine. A no-op when the v2
+// controller has not yet been initialized.
+func (s *Server) SetVicoHomeImageProvider(p apiv2.VicoHomeImageProvider) {
+	if s.apiController == nil {
+		return
+	}
+	s.apiController.SetVicoHomeImageProvider(p)
+}
+
 // Echo returns the underlying Echo instance.
 // This is useful for testing or advanced configuration.
 func (s *Server) Echo() *echo.Echo {

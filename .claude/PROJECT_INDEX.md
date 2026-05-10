@@ -1,41 +1,37 @@
-# Project Index: birdnet-gone
+# Project Index: vicohome-poller
 
 ## 1. Core Purpose
-The `birdnet-gone` project is an application designed for real-time bird sound detection and analysis. It processes audio input to identify bird species, offering features for data visualization and interaction through a web interface, and potentially integrating with IoT devices for edge processing.
+The `vicohome-poller` worktree, within the broader `birdnet-gone` project, appears to be focused on real-time bird sound analysis and detection. It likely integrates with a `vicohome` system, potentially acting as a data polling or bridge component to ingest audio or environmental data for analysis, and providing a web-based user interface for interaction and visualization of observations.
 
 ## 2. Architecture
-The project follows a modular architecture:
-*   **Backend**: Primarily developed in Go, handling core logic, data processing (birdnet, audio, spectrogram), API services, and integrations (e.g., MQTT, eBird, weather).
-*   **Frontend**: A web-based user interface built with Svelte (JavaScript/TypeScript), providing data visualization and user interaction.
-*   **Python Components**: Includes scripts for display, analysis, and integration with specific home automation systems (VicoHome bridge) and a watchdog.
-*   **Deployment**: Utilizes Docker and Podman for containerized deployment, with `docker-compose.yml` and `podman-compose.yml` defining the service orchestration.
-*   **Firmware**: Contains code for ESP32 devices, suggesting potential for edge computing or specific hardware integrations.
+The project employs a polyglot architecture:
+*   **Backend**: Primarily Go-based (`main.go`, `cmd/`, `internal/`) handling core logic, data processing (e.g., `birdnet`, `myaudio`, `spectrogram`), API services (`internal/api`, `internal/serviceapi`), and various integrations (e.g., `mqtt`, `ebird`, `notification`).
+*   **Frontend**: A Svelte-based web application (`frontend/`) managed with Node.js/npm, providing the user interface for monitoring and control.
+*   **Containerization**: Utilizes Docker (`Docker/`, `Dockerfile`, `docker-compose.yml`) and Podman (`Podman/`) for deployment and environment management.
+*   **VicoHome Integration**: A Python-based bridge (`vicohome-bridge/`) likely handles specific interactions or data fetching from `vicohome` devices.
+*   **Firmware**: Includes embedded code for ESP32 devices (`firmware/esp32-keepalive`), suggesting potential hardware interaction or data acquisition at the edge.
+*   **Scripting & Automation**: Various shell and Python scripts (`scripts/`) for maintenance, debugging, and system interactions.
+*   **VM Images**: Packer (`vm-images/`) is used to build virtual machine images, indicating planned deployment to VMs.
 
 ## 3. Key Files
-*   `ARCHITECTURE.md`: High-level architectural overview.
-*   `main.go`: Main entry point for the Go backend application.
-*   `go.mod`, `go.sum`: Go module dependency definitions.
-*   `frontend/`: Directory containing the Svelte web frontend.
-*   `frontend/package.json`: Frontend project dependencies and scripts.
+*   `main.go`: Main entry point for the Go application.
+*   `go.mod`, `go.sum`: Go module dependency management.
+*   `frontend/package.json`, `frontend/package-lock.json`: Frontend (Node.js/Svelte) dependency management and project configuration.
+*   `vicohome-bridge/requirements.txt`: Python dependencies for the `vicohome-bridge`.
+*   `Dockerfile`, `docker-compose.yml`: Docker build instructions and multi-container application definitions.
+*   `Podman/podman-compose.yml`: Podman equivalent for container orchestration.
+*   `ARCHITECTURE.md`, `README.md`, `CONTRIBUTING.md`, `TESTING.md`: Core project documentation.
+*   `internal/birdnet/`: Contains core BirdNET integration logic.
+*   `internal/vicohome/`: Contains core VicoHome integration logic.
+*   `cmd/`: CLI command definitions for the Go application.
+*   `Taskfile.yml`: Task runner configuration.
 *   `frontend/src/`: Frontend source code.
-*   `internal/birdnet/`, `internal/myaudio/`, `internal/spectrogram/`: Core Go packages for bird sound analysis and audio processing.
-*   `cmd/root.go`: Defines the root command for the CLI application.
-*   `docker-compose.yml`, `Dockerfile`: Docker configuration for local development and deployment.
-*   `Podman/podman-compose.yml`: Podman configuration for deployment.
-*   `display/birdnet_display.py.backup`: Python script for display functionality.
-*   `vicohome-bridge/vicohome_bridge.py`: Python script for VicoHome integration.
-*   `firmware/esp32-c6-rtsp/`, `firmware/esp32-keepalive/`: Embedded firmware projects for ESP32 devices.
-*   `scripts/`: Contains various utility and maintenance scripts.
-*   `README.md`: General project overview and instructions.
-*   `CONTRIBUTING.md`: Guidelines for contributing to the project.
-*   `TESTING.md`: Information regarding project testing.
-*   `PRIVACY.md`: Project privacy policy.
-*   `.devcontainer/devcontainer.json`: Configuration for development containers.
-*   `vm-images/build.sh`: Script for building virtual machine images.
 
 ## 4. Dependencies
-*   **Go**: Primary language for the backend services and CLI tools.
-*   **Svelte**: JavaScript framework used for the web frontend, along with associated tools like Vite, Playwright, and Vitest.
-*   **Python**: Used for various scripts, including display utilities and integrations (e.g., `vicohome-bridge`), with dependencies managed via `requirements.txt`.
-*   **Docker/Podman**: Containerization platforms used for packaging and deploying the application components.
-*   **ESP-IDF (or similar)**: Expected toolchain for building the ESP32 firmware (inferred).
+*   **Go Modules**: Managed by `go.mod` (e.g., various internal packages, external Go libraries).
+*   **Node.js/NPM**: For frontend development, defined in `frontend/package.json` (e.g., Svelte, Vite, Playwright, ESLint).
+*   **Python**: For `vicohome-bridge` (`requirements.txt`) and various scripts (e.g., `analyze-debug-data.py`).
+*   **Docker/Podman**: Containerization platforms.
+*   **Bash**: For various shell scripts.
+*   **Packer**: For VM image creation (`vm-images/`).
+*   **Git**: For version control.

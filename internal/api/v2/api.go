@@ -85,6 +85,12 @@ type Controller struct {
 	audioActive        bool
 	audioHealthMu      sync.RWMutex
 
+	// VicoHome bird feeder camera integration. Wired after startup by
+	// realtime.go via SetVicoHomeImageProvider; nil when VicoHome is
+	// disabled or the poller has not yet started.
+	vicohomeProvider   VicoHomeImageProvider
+	vicohomeProviderMu sync.RWMutex
+
 	// Test synchronization fields (only populated when initializeRoutes is true)
 	// goroutinesStarted signals when all background goroutines have successfully started.
 	// This is primarily used in testing to ensure proper setup before assertions.
@@ -463,6 +469,7 @@ func (c *Controller) initRoutes() {
 		{"species routes", c.initSpeciesRoutes},
 		{"dynamic threshold routes", c.initDynamicThresholdRoutes},
 		{"telemetry routes", c.initTelemetryRoutes},
+		{"vicohome routes", c.initVicoHomeRoutes},
 	}
 
 	for _, initializer := range routeInitializers {
