@@ -1,0 +1,193 @@
+name: Deploy BirdNET-Go to Pi 5
+
+# Cross-compiles linux_arm64 on a GitHub-hosted runner, then SSHes from the
+# self-hosted runner (192.168.1.182) into the Pi 5 (192.168.10.246) to perform
+# an atomic-swap deploy of the binary. The Pi 5 lives on the IoT VLAN, which
+# only the self-hosted runner can reach — that's why this workflow is split
+# into two jobs.
+#
+# Triggered manually (workflow_dispatch). Once we've validated a few clean
+# deploys, the trigger can be widened to `push: branches: [main]` with
+# paths-ignore for docs/lint-only changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build and deploy (default: main)'
+        required: false
+        default: 'main'
+      skip_verify:
+        description: 'Skip post-deploy endpoint verification'
+        type: boolean
+        default: false
+      skip_pushover:
+        description: 'Skip Pushover notification'
+        type: boolean
+        default: false
+
+env:
+  PI_HOST: 192.168.10.246
+  PI_USER: jeremy
+  SERVICE: birdnet-go-native.service
+  BINARY_PATH: /usr/local/bin/birdnet-go
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build linux_arm64
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install ARM64 cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config gcc-aarch64-linux-gnu
+
+      - name: Compute build version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "BUILD_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Build linux_arm64
+        env:
+          CGO_ENABLED: 1
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+        run: task linux_arm64
+
+      - name: Verify binary
+        run: |
+          file bin/birdnet-go
+          test -x bin/birdnet-go
+          # Confirm it's actually ARM64
+          file bin/birdnet-go | grep -q "ARM aarch64" || { echo "Binary is not ARM aarch64"; exit 1; }
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: birdnet-go-linux_arm64
+          path: bin/birdnet-go
+          retention-days: 14
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to Pi 5
+    needs: build
+    runs-on: self-hosted
+    timeout-minutes: 10
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download binary artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: birdnet-go-linux_arm64
+          path: ./artifact
+
+      - name: Stage binary on Pi
+        run: |
+          chmod +x artifact/birdnet-go
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+            artifact/birdnet-go "${PI_USER}@${PI_HOST}:/tmp/birdnet-go-new"
+
+      - name: Atomic swap
+        run: |
+          # Capture the current version for the backup filename, stop the
+          # service, kill any orphan processes, copy the running binary aside
+          # for rollback, install the new one, and start the service.
+          ssh -o StrictHostKeyChecking=accept-new "${PI_USER}@${PI_HOST}" "
+            set -e
+            CUR_VER=\$(${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2)
+            echo \"current version: \$CUR_VER\"
+            sudo systemctl stop ${SERVICE}
+            sleep 2
+            sudo pkill -9 -f 'birdnet-go realtime' 2>/dev/null || true
+            sudo cp -p ${BINARY_PATH} ${BINARY_PATH}.\$CUR_VER
+            echo \"backup: ${BINARY_PATH}.\$CUR_VER\"
+            sudo install -m 755 /tmp/birdnet-go-new ${BINARY_PATH}
+            rm -f /tmp/birdnet-go-new
+            NEW_VER=\$(${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2)
+            echo \"new version: \$NEW_VER\"
+            sudo systemctl start ${SERVICE}
+            sleep 8
+            sudo systemctl is-active ${SERVICE}
+          "
+
+      - name: Verify health
+        if: ${{ !inputs.skip_verify }}
+        run: |
+          # Give the service a moment to bind sockets after start, then probe
+          # the health endpoint and the VicoHome route that PR #73 added.
+          # Both must return 200; a partial failure means we should investigate.
+          sleep 10
+          for i in 1 2 3 4 5; do
+            HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://${PI_HOST}:8080/api/v2/health" || true)
+            [ "$HEALTH" = "200" ] && break
+            echo "health probe attempt $i: HTTP $HEALTH (retrying)"
+            sleep 3
+          done
+          [ "$HEALTH" = "200" ] || { echo "Health check failed: HTTP $HEALTH"; exit 1; }
+
+          VH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://${PI_HOST}:8080/api/v2/vicohome/images" || true)
+          [ "$VH" = "200" ] || { echo "VicoHome endpoint regressed: HTTP $VH"; exit 1; }
+
+          echo "✅ Health 200, VicoHome 200"
+
+      - name: Pushover notification (success)
+        if: ${{ success() && !inputs.skip_pushover }}
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: |
+          curl -s --max-time 10 \
+            --form-string "token=${PUSHOVER_TOKEN}" \
+            --form-string "user=${PUSHOVER_USER}" \
+            --form-string "title=BirdNET-Go deployed to Pi 5" \
+            --form-string "message=Version ${VERSION} is live on ${PI_HOST}." \
+            --form-string "priority=-1" \
+            https://api.pushover.net/1/messages.json > /dev/null
+
+      - name: Pushover notification (failure)
+        if: ${{ failure() && !inputs.skip_pushover }}
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: |
+          curl -s --max-time 10 \
+            --form-string "token=${PUSHOVER_TOKEN}" \
+            --form-string "user=${PUSHOVER_USER}" \
+            --form-string "title=BirdNET-Go deploy FAILED" \
+            --form-string "message=Version ${VERSION} failed to deploy to ${PI_HOST}. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --form-string "priority=1" \
+            https://api.pushover.net/1/messages.json > /dev/null
