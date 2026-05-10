@@ -272,7 +272,8 @@ describe('addAxisLabel', () => {
 
     expect(label.style.fill).toBe('#ff0000');
     expect(label.style.fontSize).toBe('16px');
-    expect(label.style.fontFamily).toBe('Times New Roman');
+    // jsdom canonicalizes multi-word font-family per CSS spec by wrapping in quotes.
+    expect(label.style.fontFamily.replace(/^["']|["']$/g, '')).toBe('Times New Roman');
   });
 
   it('should be non-interactive and hidden from screen readers', () => {
