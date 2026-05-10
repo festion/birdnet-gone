@@ -108,6 +108,10 @@ jobs:
     timeout-minutes: 10
     env:
       VERSION: ${{ needs.build.outputs.version }}
+      # ServerAliveInterval keeps the connection alive during longer-running
+      # operations (e.g., systemctl stop takes 8-10s on this Pi). The first
+      # CI run failed exit-255 mid-stream without these.
+      SSH_OPTS: "-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
     steps:
       - name: Download binary artifact
         uses: actions/download-artifact@v6
@@ -115,34 +119,45 @@ jobs:
           name: birdnet-go-linux_arm64
           path: ./artifact
 
+      # SSH options shared across deploy steps. ServerAliveInterval keeps the
+      # connection alive during long-running operations like systemctl stop,
+      # which sometimes takes 8-10s on this Pi and can otherwise cause the
+      # control socket to be reaped mid-stream by intermediate routers.
       - name: Stage binary on Pi
         run: |
           chmod +x artifact/birdnet-go
-          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
-            artifact/birdnet-go "${PI_USER}@${PI_HOST}:/tmp/birdnet-go-new"
+          scp ${SSH_OPTS} artifact/birdnet-go "${PI_USER}@${PI_HOST}:/tmp/birdnet-go-new"
 
-      - name: Atomic swap
+      # The deploy is split into small SSH calls instead of one long script
+      # because earlier attempts hit "exit code 255" (SSH session dropped)
+      # right around the systemctl stop step. Each step here completes in a
+      # second or two — well inside the keepalive window — and the Pi state
+      # is well-defined between calls so we can re-run safely.
+      - name: Capture current version for backup
+        id: cur_ver
         run: |
-          # Capture the current version for the backup filename, stop the
-          # service, kill any orphan processes, copy the running binary aside
-          # for rollback, install the new one, and start the service.
-          ssh -o StrictHostKeyChecking=accept-new "${PI_USER}@${PI_HOST}" "
-            set -e
-            CUR_VER=\$(${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2)
-            echo \"current version: \$CUR_VER\"
-            sudo systemctl stop ${SERVICE}
-            sleep 2
-            sudo pkill -9 -f 'birdnet-go realtime' 2>/dev/null || true
-            sudo cp -p ${BINARY_PATH} ${BINARY_PATH}.\$CUR_VER
-            echo \"backup: ${BINARY_PATH}.\$CUR_VER\"
-            sudo install -m 755 /tmp/birdnet-go-new ${BINARY_PATH}
-            rm -f /tmp/birdnet-go-new
-            NEW_VER=\$(${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2)
-            echo \"new version: \$NEW_VER\"
-            sudo systemctl start ${SERVICE}
-            sleep 8
-            sudo systemctl is-active ${SERVICE}
-          "
+          CUR_VER=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2")
+          echo "cur_ver=${CUR_VER}" >> "$GITHUB_OUTPUT"
+          echo "current version: ${CUR_VER}"
+
+      - name: Stop service and kill orphans
+        run: |
+          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo systemctl stop ${SERVICE} && sudo pkill -9 -f 'birdnet-go realtime' 2>/dev/null || true"
+
+      - name: Backup current binary and install new
+        env:
+          CUR_VER: ${{ steps.cur_ver.outputs.cur_ver }}
+        run: |
+          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo cp -p ${BINARY_PATH} ${BINARY_PATH}.${CUR_VER} && sudo install -m 755 /tmp/birdnet-go-new ${BINARY_PATH} && rm -f /tmp/birdnet-go-new"
+          echo "backup: ${BINARY_PATH}.${CUR_VER}"
+
+      - name: Start service
+        run: |
+          NEW_VER=$(ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "${BINARY_PATH} --version 2>&1 | head -1 | grep -oE 'version=[a-zA-Z0-9.-]+' | cut -d= -f2")
+          echo "new version: ${NEW_VER}"
+          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo systemctl start ${SERVICE}"
+          sleep 8
+          ssh ${SSH_OPTS} "${PI_USER}@${PI_HOST}" "sudo systemctl is-active ${SERVICE}"
 
       - name: Verify health
         if: ${{ !inputs.skip_verify }}
