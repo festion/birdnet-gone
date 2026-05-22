@@ -8,10 +8,14 @@ on:
 
 jobs:
   provide-support:
-    # Skip if issue is created by tphakala or if it's a bot comment
+    # Skip if: issue created by tphakala, comment is from a bot,
+    # comment is on a PR (PR comments are issue_comment events in GitHub's
+    # data model — without this, every PR comment triggers a no-op workflow
+    # whose claude-code-action 404s on a phantom branch and posts "Claude
+    # encountered an error" back to the PR).
     if: |
       (github.event_name == 'issues' && github.event.issue.user.login != 'tphakala' && !contains(github.event.issue.user.type, 'Bot')) ||
-      (github.event_name == 'issue_comment' && github.event.comment.user.login != 'tphakala' && !contains(github.event.comment.user.type, 'Bot') && !contains(github.event.comment.body, '🤖 Automated Support'))
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request && github.event.comment.user.login != 'tphakala' && !contains(github.event.comment.user.type, 'Bot') && !contains(github.event.comment.body, '🤖 Automated Support'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
