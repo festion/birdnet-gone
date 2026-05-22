@@ -9,7 +9,7 @@ updates:
       - go
     commit-message:
       prefix: "build(deps)"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     groups:
       go-minor-patch:
         patterns:
@@ -27,7 +27,7 @@ updates:
       - github-actions
     commit-message:
       prefix: "ci(deps)"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     groups:
       actions:
         patterns:
@@ -42,7 +42,7 @@ updates:
       - frontend
     commit-message:
       prefix: "build(deps-frontend)"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     groups:
       npm-minor-patch:
         patterns:
