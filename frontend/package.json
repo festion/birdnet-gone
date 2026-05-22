@@ -111,7 +111,7 @@
     "prettier-plugin-svelte": "^3.5.1",
     "stylelint": "^17.11.0",
     "stylelint-config-standard": "^40.0.0",
-    "svelte": "^5.55.5",
+    "svelte": "^5.55.7",
     "svelte-check": "^4.4.8",
     "svelte-eslint-parser": "^1.6.1",
     "tailwindcss": "^4.1.17",
@@ -139,6 +139,7 @@
     "flatted": ">=3.4.2",
     "picomatch": ">=4.0.4",
     "yaml": ">=2.8.3",
-    "brace-expansion": ">=2.0.3"
+    "brace-expansion": ">=2.0.3",
+    "devalue": ">=5.8.1"
   }
 }
