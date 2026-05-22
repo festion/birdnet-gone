@@ -192,8 +192,14 @@ describe('DateRangePicker', () => {
 
       await fireEvent.click(screen.getByText('Today'));
 
-      // The component creates dates at midnight local time
-      const today = new Date(2024, 0, 15); // January 15, 2024 at midnight
+      // The component derives `today` from local-time components of new Date():
+      //   const now = new Date();
+      //   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Mirror that here so the assertion is TZ-agnostic. Hardcoding
+      // `new Date(2024, 0, 15)` only matches in TZs where the mocked UTC time
+      // (2024-01-15T00:00:00Z, see beforeEach) still falls on calendar Jan 15.
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       expect(onChange).toHaveBeenCalledWith({
         startDate: today,
         endDate: today,
