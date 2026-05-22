@@ -95,7 +95,7 @@
     "@vitest/eslint-plugin": "^1.6.17",
     "@vitest/ui": "^4.0.16",
     "axe-core": "^4.10.3",
-    "eslint": "^9.30.1",
+    "eslint": "^10.4.0",
     "eslint-plugin-playwright": "^2.10.4",
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-svelte": "^3.17.1",
