@@ -5,6 +5,12 @@
 
 ---
 
+### Pi host + birdnet.db access (CURRENT) — 2026-06-08
+- **The Pi moved to the IoT VLAN.** Host is `birdnet-pi5` at **192.168.10.246** (`jeremy@192.168.10.246`). The `192.168.1.197` in older entries below is **stale** — it no longer pings (consistent with the homelab IoT-VLAN migration). Service still `birdnet-go-native.service`; binary `/usr/local/bin/birdnet-go realtime`.
+- **Detection DB:** `/home/jeremy/birdnet.db` (SQLite, GORM). Main table `notes` (one row per detection): `common_name, scientific_name, confidence, clip_name, date, time, threshold, sensitivity, begin_time, end_time, ...`; `results` table holds per-detection score rows (note_id→species,confidence).
+- **`sqlite3` CLI is NOT installed on the Pi** — query via python3: `sqlite3.connect("file:/home/jeremy/birdnet.db?mode=ro",uri=True)`. Use `mode=ro` so a read query never creates root/owner-mismatched WAL/shm files while birdnet-go holds the DB open.
+- **Clips:** every detection saves a clip (`notes.clip_name`, 1:1 — 0/8059 empty as of 06-08); files under `/home/jeremy/clips/<clip_name>` (e.g. `2026/06/baeolophus_bicolor_91p_…Z.wav`), full retention back to the DB's start, ~11 GB. Relevant for the second-level-reviewer evaluation (Vikunja #1710).
+
 ### BirdNET-Go nightly builds — keep previous version and don't mix with stable
 - When upgrading nightlies, keep backups at `/usr/local/bin/birdnet-go.<version>`.
 - Stable releases (v0.6.x) use an **incompatible config format** from nightly builds. Don't attempt rollback from nightly to stable without config migration.
