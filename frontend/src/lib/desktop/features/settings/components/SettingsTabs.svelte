@@ -70,7 +70,9 @@
   // Keyboard navigation handler
   function handleKeyDown(event: KeyboardEvent, currentIndex: number) {
     const tabCount = tabs.length;
-    let newIndex = currentIndex;
+    // Set by every navigation case; non-navigation keys (Enter/Space/default)
+    // return early, so newIndex is assigned before it's read below.
+    let newIndex: number;
 
     switch (event.key) {
       case 'ArrowRight':

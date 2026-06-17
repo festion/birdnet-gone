@@ -1,3 +1,9 @@
+<script module lang="ts">
+  // Shared across all instances so each tooltip gets a distinct, SSR-stable id
+  // (instance-local state would reset to 0 per component, colliding on `tooltip-1`).
+  let tooltipCounter = 0;
+</script>
+
 <script lang="ts">
   import { cn } from '$lib/utils/cn.js';
   import { safeGet } from '$lib/utils/security';
@@ -50,7 +56,8 @@
   let inputElement = $state<HTMLInputElement>();
 
   // Generate unique tooltip ID for accessibility (deterministic for SSR compatibility)
-  let tooltipCounter = 0;
+  // tooltipCounter lives in <script module> so each instance gets a distinct suffix.
+  // eslint-disable-next-line no-useless-assignment -- the incremented value is consumed by the next instance (shared module counter); the rule's per-function analysis can't see the cross-instance read.
   let tooltipId = $derived(id ? `${id}-tooltip` : `tooltip-${++tooltipCounter}`);
 
   let isValid = $derived.by(() => {

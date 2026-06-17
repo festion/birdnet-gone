@@ -297,21 +297,6 @@ export default [
     },
   },
 
-  // ESLint 10 upgrade: two rules were promoted into `js.configs.recommended`
-  // as errors (they were not in ESLint 9's recommended set). They are deferred
-  // here so the v10 toolchain bump stays scoped to the upgrade itself; adopting
-  // them is tracked as a follow-up (fix the findings, then drop this block).
-  //  - no-useless-assignment: flags `let x = 0` initializers that are reassigned
-  //    on every branch, but conflicts with TS definite-assignment guards (e.g.
-  //    the biquad coefficient defaults in src/lib/utils/audio/dsp.ts).
-  //  - preserve-caught-error: requires `cause` on rethrown errors.
-  {
-    rules: {
-      'no-useless-assignment': 'off',
-      'preserve-caught-error': 'off',
-    },
-  },
-
   // Global ignores
   {
     ignores: [

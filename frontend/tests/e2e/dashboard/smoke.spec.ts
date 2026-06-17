@@ -77,7 +77,8 @@ test.describe('Dashboard Smoke Tests - New UI Only', () => {
     } catch (error) {
       const responseText = await response.text();
       throw new Error(
-        `Failed to parse JSON response. Status: ${response.status()}, Body: ${responseText}, Error: ${error}`
+        `Failed to parse JSON response. Status: ${response.status()}, Body: ${responseText}`,
+        { cause: error }
       );
     }
 
