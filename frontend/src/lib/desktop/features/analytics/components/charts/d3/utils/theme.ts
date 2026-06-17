@@ -330,9 +330,9 @@ export function generateSpeciesColors(count: number, theme: ChartTheme): string[
  * Get contrast color for text on colored backgrounds
  */
 export function getContrastColor(backgroundColor: string): string {
-  let r = 0,
-    g = 0,
-    b = 0;
+  // Assigned by every parse branch below; unrecognized formats throw, so r/g/b
+  // are definitely assigned by the time they're validated/read.
+  let r: number, g: number, b: number;
 
   try {
     // Detect and parse different color formats

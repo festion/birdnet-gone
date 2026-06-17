@@ -138,12 +138,10 @@ export function calculateCoefficients(
     alpha = sinOmega / (2 * q);
   }
 
-  let b0 = 0,
-    b1 = 0,
-    b2 = 0;
-  let a0 = 1,
-    a1 = 0,
-    a2 = 0;
+  // Assigned by every switch case below; the switch's `default` returns early,
+  // so these are definitely assigned on all paths that reach the normalization.
+  let b0: number, b1: number, b2: number;
+  let a0: number, a1: number, a2: number;
 
   switch (filter.type) {
     case 'LowPass':
