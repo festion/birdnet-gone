@@ -108,11 +108,25 @@ jobs:
     timeout-minutes: 10
     env:
       VERSION: ${{ needs.build.outputs.version }}
+      # Self-contained deploy identity (Vikunja #2004): `-i ~/.ssh/deploy_key`
+      # pins the dedicated `birdnet-deploy@ci-cd` key written from the
+      # DEPLOY_SSH_KEY secret by "Configure SSH" below — so this job no longer
+      # depends on a pre-placed runner id_ed25519 and runs on EITHER org runner
+      # (mirrors home-assistant-config / homelab-gitops #166; kills runner-roulette).
       # ServerAliveInterval keeps the connection alive during longer-running
       # operations (e.g., systemctl stop takes 8-10s on this Pi). The first
       # CI run failed exit-255 mid-stream without these.
-      SSH_OPTS: "-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+      SSH_OPTS: "-i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
     steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$PI_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
       - name: Download binary artifact
         uses: actions/download-artifact@v8
         with:
@@ -212,3 +226,7 @@ jobs:
             --form-string "message=Version ${VERSION} failed to deploy to ${PI_HOST}. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --form-string "priority=1" \
             https://api.pushover.net/1/messages.json > /dev/null
+
+      - name: Clean up deploy key
+        if: ${{ always() }}
+        run: rm -f ~/.ssh/deploy_key
