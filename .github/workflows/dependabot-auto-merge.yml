@@ -1,0 +1,86 @@
+name: Dependabot auto-merge
+
+# birdnet-gone can't use the branch-protection `--auto` pattern: its CI checks
+# (`golangci / lint`, `Frontend Quality Checks`) are path-filtered, so requiring
+# one in branch protection would block non-matching human PRs. So we gate
+# in-workflow: for a Dependabot patch/minor PR, wait until THE check that gates
+# this PR's ecosystem is green (and every other check has settled with no
+# failure), then squash-merge — pinned to the polled head SHA.
+#
+# Required check is keyed off the Dependabot `directory`:
+#   /          -> "golangci / lint"          (gomod)
+#   /frontend  -> "Frontend Quality Checks"  (npm)
+# Any other directory (e.g. github-actions at /) has no mapped gate and is left
+# for manual merge. A failed/red check also leaves the PR for manual review.
+#
+# Merge uses DEPENDABOT_AUTOMERGE_TOKEN (a Dependabot secret), not GITHUB_TOKEN.
+# Pi 5 deploy is a separate manual workflow_dispatch, so this never touches
+# hardware. `concurrency` cancels a stale poll when Dependabot rebases the PR.
+
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Gate on the ecosystem's check, then squash-merge patch/minor
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          DIR: ${{ steps.metadata.outputs.directory }}
+          SELF: dependabot-auto-merge
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$DIR" in
+            /)         REQUIRED="golangci / lint" ;;
+            /frontend) REQUIRED="Frontend Quality Checks" ;;
+            *) echo "No gate mapped for directory '$DIR' — manual merge."; exit 0 ;;
+          esac
+          echo "Gating on required check: '$REQUIRED'"
+          for i in $(seq 1 60); do
+            lines=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate \
+              --jq '.check_runs[] | select(.name != env.SELF) | [.name, .status, (.conclusion // "")] | @tsv' \
+              2>/dev/null || echo "")
+            pending=0; failed=0; req_ok=0; req_seen=0
+            while IFS=$'\t' read -r name status conclusion; do
+              [ -z "$status" ] && continue
+              [ "$name" = "$REQUIRED" ] && req_seen=1
+              if [ "$status" != "completed" ]; then pending=$((pending + 1)); continue; fi
+              case "$conclusion" in
+                success)         [ "$name" = "$REQUIRED" ] && req_ok=1 ;;
+                skipped|neutral) : ;;
+                *)               failed=$((failed + 1)) ;;
+              esac
+            done <<< "$lines"
+            echo "poll $i: req_seen=$req_seen req_ok=$req_ok pending=$pending failed=$failed"
+            if [ "$failed" -gt 0 ]; then
+              echo "A check failed — leaving PR for manual review."; exit 0
+            fi
+            if [ "$req_ok" -eq 1 ] && [ "$pending" -eq 0 ]; then
+              echo "Required check green and all checks settled — squash-merging."
+              gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"; exit 0
+            fi
+            if [ "$i" -ge 6 ] && [ "$req_seen" -eq 0 ]; then
+              echo "Required check '$REQUIRED' never ran — leaving for manual merge."; exit 0
+            fi
+            sleep 30
+          done
+          echo "Checks did not settle within timeout — leaving PR for manual review."; exit 0
