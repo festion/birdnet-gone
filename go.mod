@@ -31,7 +31,7 @@ require (
 	github.com/tphakala/go-tflite v0.2.1
 	github.com/tphakala/simd v1.0.22
 	go.uber.org/goleak v1.3.0
-	golang.org/x/crypto v0.51.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/net v0.55.0
 	golang.org/x/term v0.43.0
 	golang.org/x/text v0.37.0
