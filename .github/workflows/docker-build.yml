@@ -30,8 +30,13 @@ jobs:
 
   build-and-push-docker-image:
     needs: golangci
-    if: github.event_name == 'push' && github.ref_name == 'main'
+    # push-to-main builds automatically; workflow_dispatch on main allows a
+    # manual rebuild (and lets this build+push path be verified on demand).
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name == 'main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # push to ghcr.io (repo default token is read-only)
     steps:
       - name: Checkout GitHub Action
         uses: actions/checkout@v7
