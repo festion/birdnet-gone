@@ -18,6 +18,20 @@ updates:
           - minor
           - patch
 
+  # Tracks the Dockerfile Go base image (golang:<ver>-trixie) so it can't
+  # silently drift from go.mod's `go` directive. No group / manual merge —
+  # a base-image bump usually pairs with a go.mod bump and wants review.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "build(deps-docker)"
+    open-pull-requests-limit: 5
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
