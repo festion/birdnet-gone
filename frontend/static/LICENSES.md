@@ -129,7 +129,7 @@ Source: MIT
 
 ### github.com/golang-jwt/jwt/v5
 
-License: https://github.com/golang-jwt/jwt/blob/v5.3.0/LICENSE
+License: https://github.com/golang-jwt/jwt/blob/v5.3.1/LICENSE
 Source: MIT
 
 ### github.com/google/s2a-go
@@ -279,7 +279,7 @@ Source: BSD-3-Clause
 
 ### github.com/prometheus/client_golang/prometheus
 
-License: https://github.com/prometheus/client_golang/blob/v1.23.2/LICENSE
+License: https://github.com/prometheus/client_golang/blob/v1.24.0/LICENSE
 Source: Apache-2.0
 
 ### github.com/prometheus/client_model/go
@@ -289,12 +289,12 @@ Source: Apache-2.0
 
 ### github.com/prometheus/common
 
-License: https://github.com/prometheus/common/blob/v0.67.4/LICENSE
+License: https://github.com/prometheus/common/blob/v0.70.0/LICENSE
 Source: Apache-2.0
 
 ### github.com/prometheus/procfs
 
-License: https://github.com/prometheus/procfs/blob/v0.19.2/LICENSE
+License: https://github.com/prometheus/procfs/blob/v0.21.1/LICENSE
 Source: Apache-2.0
 
 ### github.com/sagikazarmark/locafero
@@ -399,7 +399,7 @@ Source: MIT
 
 ### github.com/tphakala/simd
 
-License: https://github.com/tphakala/simd/blob/v1.3.0/LICENSE
+License: https://github.com/tphakala/simd/blob/v1.6.0/LICENSE
 Source: MIT
 
 ### github.com/valyala/bytebufferpool
@@ -441,11 +441,6 @@ Source: Apache-2.0
 
 License: https://github.com/uber-go/goleak/blob/v1.3.0/LICENSE
 Source: MIT
-
-### go.yaml.in/yaml/v2
-
-License: https://github.com/yaml/go-yaml/blob/v2.4.3/LICENSE
-Source: Apache-2.0
 
 ### go.yaml.in/yaml/v3
 
