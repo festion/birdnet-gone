@@ -499,7 +499,7 @@ Source: Apache-2.0
 
 ### google.golang.org/grpc
 
-License: https://github.com/grpc/grpc-go/blob/v1.82.0/LICENSE
+License: https://github.com/grpc/grpc-go/blob/v1.82.1/LICENSE
 Source: Apache-2.0
 
 ### google.golang.org/protobuf
