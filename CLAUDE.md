@@ -4,9 +4,16 @@
 
 BirdNET-Go: Go implementation of BirdNET for real-time bird sound identification aimed for non serious birders and home users. Open source project for fun.
 
-## Learnings
+## Recall project knowledge
 
-@.claude/learnings.md
+The learnings base for this repo (20 KB) is **not** preloaded — it used to be
+`@`-imported, which expanded ~6k tokens into every session. Search it instead:
+
+```bash
+memory-search "<what you're about to change>" --project birdnet-gone
+```
+
+Query it before touching the fork's MQTT patches, the Pi 5 deployment, or the audio pipeline.
 
 ## Quick Navigation
 
