@@ -58,6 +58,20 @@ updates:
       prefix: "build(deps-frontend)"
     open-pull-requests-limit: 5
     groups:
+      vite-toolchain:
+        # vite and its framework plugin declare peer ranges on each other, so a
+        # major in one CANNOT be installed without the matching major in the
+        # other -- npm fails with ERESOLVE. Dependabot opening them as separate
+        # PRs produces two permanently-unmergeable PRs that reopen forever.
+        # Grouping them means one coherent, installable PR. Measured 2026-07-30.
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vite-plugin-*"
+          - "@sveltejs/vite-plugin-*"
+          - "rollup"
+        update-types:
+          - "major"
       npm-minor-patch:
         patterns:
           - "*"
