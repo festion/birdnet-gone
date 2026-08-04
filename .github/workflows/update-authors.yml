@@ -1,9 +1,24 @@
 name: Update AUTHORS file
 
 on:
-  # Run monthly
-  schedule:
-    - cron: '0 0 1 * *'  # Monthly
+  # SCHEDULE DISABLED 2026-08-04 (ops #2517).
+  #
+  # This workflow cannot succeed in this repo. Its final step fails with:
+  #   GitHub Actions is not permitted to create or approve pull requests
+  # and it has therefore failed on every monthly run since at least June —
+  # 2026-06-01, 2026-07-01, 2026-08-01, all identical.
+  #
+  # The only fix is to enable "Allow GitHub Actions to create and approve pull
+  # requests", which widens what the CI token can do. That is the opposite
+  # direction to the credential-narrowing work in ops #2294, and an
+  # auto-generated AUTHORS file on a personal fork does not justify it.
+  #
+  # Left as workflow_dispatch rather than deleted: the workflow itself is fine,
+  # it is the permission that is deliberately absent. If that setting is ever
+  # enabled, restore the schedule line below and this becomes useful again.
+  #
+  # schedule:
+  #   - cron: '0 0 1 * *'  # Monthly
   workflow_dispatch:  # Manual trigger
 
 permissions:
