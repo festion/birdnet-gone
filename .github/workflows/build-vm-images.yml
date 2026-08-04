@@ -253,7 +253,7 @@ jobs:
           
           ## 🔧 Specifications
           
-          - **Base OS**: Ubuntu 24.10 (Oracular Oriole) Server
+          - **Base OS**: Ubuntu 24.04 LTS (Noble Numbat) Server
           - **Docker**: Latest version with BirdNET-Go pre-configured
           - **Architecture**: Two-disk setup (8GB OS + user-defined data disk)
           - **Memory**: 4GB minimum, 8GB recommended

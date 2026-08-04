@@ -22,7 +22,7 @@ variable "arch" {
 
 variable "base_image" {
   type        = string
-  description = "Base Ubuntu 24.10 cloud image URL"
+  description = "Base Ubuntu 24.04 LTS cloud image URL"
   default     = ""
 }
 
@@ -34,14 +34,24 @@ variable "output_dir" {
 
 # Local variables for architecture-specific settings
 locals {
+  # Ubuntu 24.04 LTS (Noble Numbat), supported to 2029. Previously 24.10
+  # (Oracular Oriole), which reached end of life in July 2025 — the build was
+  # producing VM images on a base that receives no security updates.
+  #
+  # Pinned to a DATED release directory, not the `release/` symlink. That
+  # symlink follows every upstream respin while the checksum here stays fixed,
+  # so the pair drifts apart and packer fails with "Checksums did not match" —
+  # which is exactly how this build broke (failing every month since June).
+  # A dated directory is immutable, so the URL and the checksum move together
+  # or not at all. Bumping it is a deliberate, reviewable edit.
   base_images = {
-    amd64 = "https://cloud-images.ubuntu.com/releases/oracular/release/ubuntu-24.10-server-cloudimg-amd64.img"
-    arm64 = "https://cloud-images.ubuntu.com/releases/oracular/release/ubuntu-24.10-server-cloudimg-arm64.img"
+    amd64 = "https://cloud-images.ubuntu.com/releases/noble/release-20260801/ubuntu-24.04-server-cloudimg-amd64.img"
+    arm64 = "https://cloud-images.ubuntu.com/releases/noble/release-20260801/ubuntu-24.04-server-cloudimg-arm64.img"
   }
-  
+
   base_checksums = {
-    amd64 = "sha256:8446856f1903fd305a17cfb610bbb6c01e8e2230cdf41d44fc9e3d824f747ff4"
-    arm64 = "sha256:99b858f01e238c74eb263ab8b83ea543f2576cee166e9ed8210c75035526679b"
+    amd64 = "sha256:0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe"
+    arm64 = "sha256:aa6da05756e85ea6dde4836b841fecb10cfd1ba3bcea320189d9af945db70476"
   }
   
   qemu_machines = {
@@ -300,7 +310,7 @@ build {
       "Version: ${var.version}",
       "Architecture: ${var.arch}",
       "Build Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)",
-      "Base OS: Ubuntu 24.10 (Oracular Oriole)",
+      "Base OS: Ubuntu 24.04 LTS (Noble Numbat)",
       "Docker Version: $(docker --version)",
       "EOF",
       "echo 'System information generated'"
