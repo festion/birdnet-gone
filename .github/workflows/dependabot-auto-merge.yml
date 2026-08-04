@@ -55,10 +55,31 @@ jobs:
             *) echo "No gate mapped for directory '$DIR' — manual merge."; exit 0 ;;
           esac
           echo "Gating on required check: '$REQUIRED'"
+          api_fail=0
           for i in $(seq 1 60); do
-            lines=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate \
-              --jq '.check_runs[] | select(.name != env.SELF) | [.name, .status, (.conclusion // "")] | @tsv' \
-              2>/dev/null || echo "")
+            # Do NOT swallow the API error. `2>/dev/null || echo ""` made a
+            # failed call look identical to "no checks started yet", so a dead
+            # or under-scoped token read as "required check never ran" and the
+            # gate quietly declined to merge. Measured 2026-08-04: the check
+            # had actually started within ~10s.
+            if lines=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+                 --paginate --jq '.check_runs[] | select(.name != env.SELF)
+                   | [.name, .status, (.conclusion // "")] | @tsv' \
+                 2>/tmp/check_runs_err); then
+              api_fail=0
+            else
+              api_fail=$((api_fail + 1))
+              echo "poll $i: check-runs API FAILED (attempt $api_fail):"
+              head -c 300 /tmp/check_runs_err
+              if [ "$api_fail" -ge 3 ]; then
+                echo "check-runs API failed $api_fail times in a row. The gate"
+                echo "cannot evaluate this PR: that is an API/permission fault,"
+                echo "NOT a missing check. Leaving PR for manual review."
+                exit 0
+              fi
+              sleep 30
+              continue
+            fi
             pending=0; failed=0; req_ok=0; req_seen=0
             while IFS=$'\t' read -r name status conclusion; do
               [ -z "$status" ] && continue
@@ -78,8 +99,13 @@ jobs:
               echo "Required check green and all checks settled — squash-merging."
               gh pr merge --squash --match-head-commit "$HEAD_SHA" "$PR_URL"; exit 0
             fi
-            if [ "$i" -ge 6 ] && [ "$req_seen" -eq 0 ]; then
-              echo "Required check '$REQUIRED' never ran — leaving for manual merge."; exit 0
+            # 6 polls x 30s = 3 min was too tight: measured 2026-08-04, the
+            # required check completed ~20s AFTER this bail fired, so the gate
+            # gave up on a PR that was about to go green. 20 polls = 10 min.
+            if [ "$i" -ge 20 ] && [ "$req_seen" -eq 0 ]; then
+              echo "Required check '$REQUIRED' has not appeared after $i polls"
+              echo "(~$((i * 30 / 60)) min) — leaving for manual merge."
+              exit 0
             fi
             sleep 30
           done
