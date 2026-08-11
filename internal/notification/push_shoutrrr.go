@@ -62,7 +62,7 @@ func (s *ShoutrrrProvider) ValidateConfig() error {
 		return fmt.Errorf("at least one URL is required")
 	}
 	// Build sender to validate URLs
-	sender, err := shoutrrr.CreateSender(s.urls...)
+	sender, err := shoutrrr.CreateSenderWithOptions(stypes.SenderOptions{}, s.urls...)
 	if err != nil {
 		// Wrap error to sanitize any URLs that may contain tokens/credentials
 		return privacy.WrapError(err)
