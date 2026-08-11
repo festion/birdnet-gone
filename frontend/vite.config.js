@@ -71,6 +71,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // vite 8 switched the default CSS minifier to lightningcss, which rejects
+    // svelte's scoped keyframes with `Unknown at rule: @keyframes` and fails
+    // the build. Pinned back to esbuild — vite 7's default — so this stays a
+    // toolchain upgrade and not a CSS-pipeline change smuggled in alongside it.
+    cssMinify: 'esbuild',
     chunkSizeWarningLimit: 1000,
     emptyOutDir: true,
     manifest: true, // Generates .vite/manifest.json for cache busting
@@ -90,10 +95,16 @@ export default defineConfig({
         entryFileNames: '[name]-[hash].js',
         chunkFileNames: '[name]-[hash].js',
         assetFileNames: '[name]-[hash].[ext]',
-        manualChunks: {
-          vendor: ['svelte'],
-          charts: ['chart.js'],
-        }
+        // vite 8 (rolldown) dropped the OBJECT form of manualChunks and accepts
+        // only a function: the object form now throws
+        // `TypeError: manualChunks is not a function` at build time. Same two
+        // chunks as before — `svelte` -> vendor, `chart.js` -> charts — just
+        // expressed as the id predicate the new bundler requires.
+        manualChunks: id => {
+          if (id.includes('node_modules/chart.js')) return 'charts';
+          if (id.includes('node_modules/svelte')) return 'vendor';
+          return undefined;
+        },
       },
     },
   },
