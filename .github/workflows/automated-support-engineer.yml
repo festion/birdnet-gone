@@ -48,11 +48,12 @@ jobs:
         if: |
           (github.event_name == 'issues' && steps.check-response.outputs.already_responded != 'true') ||
           (github.event_name == 'issue_comment' && steps.check-response.outputs.already_responded != 'true' && !contains(github.event.comment.body, '🤖 Automated Support'))
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Use a more cost-effective model for support
-          model: "claude-sonnet-4-20250514"
+          # Use a more cost-effective model for support. Sonnet tier is
+          # deliberate — support triage does not need Opus.
+          model: "claude-sonnet-5"
           allowed_tools: |
             Read(README.md)
             Read(docs/*.md)

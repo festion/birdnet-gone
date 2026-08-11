@@ -125,7 +125,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -133,8 +133,9 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
+          # Optional: pin the model. Leaving this unset uses the action's
+          # own default. Uncomment for the Opus tier.
+          # model: "claude-opus-5"
 
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
