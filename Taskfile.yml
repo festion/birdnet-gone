@@ -619,10 +619,36 @@ tasks:
 
   # Frontend build tasks
   frontend-install:
-    desc: Install frontend dependencies
+    desc: Install frontend dependencies (from the lockfile; see ops #2793)
     dir: frontend
     cmds:
-      - npm install
+      # `npm ci`, not `npm install`. ops #2793 measured "Build dev
+      # container images" failing on ~50% of merges to main: green PR,
+      # red main, passing on a re-run of the identical commit.
+      #
+      #   a0f0d7d7  #175 undici     node_modules/yaml/dist  ENOTEMPTY
+      #   2c55bda3  #183 npm-minor  node_modules/esbuild    ETXTBSY
+      #
+      # Neither failing package was one the merge bumped. ENOTEMPTY is
+      # npm removing a directory that is still populated while
+      # RECONCILING an existing tree — the step `npm ci` never performs,
+      # because it deletes node_modules wholesale first and installs
+      # from the lockfile into empty space.
+      #
+      # This does NOT address the ETXTBSY. That one is esbuild's
+      # postinstall writing its binary then immediately spawnSync-ing
+      # it, a write-then-exec race `ci` runs identically. Halving the
+      # concurrent npm invocations (see the frontend stage in the
+      # Dockerfile) reduces its exposure; nothing here removes it. Do
+      # not read a run of green builds as proof it is gone.
+      #
+      # Trade-off, stated because it changes local behaviour: `ci`
+      # REQUIRES the lockfile to be in sync with package.json and fails
+      # loudly when it is not, where `install` silently rewrites it.
+      # That is the right default for a build, and a dev adding a
+      # dependency still runs `npm install <pkg>` directly. Verified
+      # against the committed lockfile: 677 packages, 10s, exit 0.
+      - npm ci
     sources:
       - package.json
       - package-lock.json
@@ -643,8 +669,28 @@ tasks:
   frontend-build:
     desc: Build frontend for production with strict type checking
     dir: frontend
-    deps: [frontend-install, frontend-typecheck]
+    # ops #2793 — these were `deps: [frontend-install, frontend-typecheck]`,
+    # and Task runs deps in PARALLEL. frontend-typecheck ALSO declares
+    # `deps: [frontend-install]`, so frontend-install was started twice
+    # concurrently and TWO npm processes raced in the same frontend/
+    # directory. Observed directly in a real container build, 29ms apart:
+    #
+    #   #12 0.306 task: [frontend-install] npm ci
+    #   #12 0.335 task: [frontend-install] npm ci
+    #
+    # That is the "Build dev container images" failure on ~50% of merges:
+    # one npm rmdir'ing node_modules/yaml/dist while the other populates
+    # it is the ENOTEMPTY (#175); one npm's postinstall exec'ing
+    # node_modules/esbuild/bin/esbuild while the other is still writing
+    # it is the ETXTBSY (#183). Timing-dependent, hence green PR / red
+    # main / passes on a re-run of the identical commit.
+    #
+    # Sequential cmds instead of parallel deps. The second and third
+    # entries re-enter tasks whose fingerprints now match, so they are
+    # skipped rather than repeated — the cost is ordering, not work.
     cmds:
+      - task: frontend-install
+      - task: frontend-typecheck
       - npm run build
     sources:
       - src/**/*
