@@ -3,3 +3,15 @@ Dockerfile
 .gitignore
 .git
 .github
+
+# Host-built artifacts. The image builds these itself (task frontend-build runs
+# inside the build stage), so copying them in only slows the build, busts the
+# COPY layer cache on every local npm operation, and — for node_modules — leaves
+# npm install reconciling a host-architecture tree it did not create.
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/.svelte-kit
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
