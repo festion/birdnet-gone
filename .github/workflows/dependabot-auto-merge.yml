@@ -75,7 +75,20 @@ jobs:
                 echo "check-runs API failed $api_fail times in a row. The gate"
                 echo "cannot evaluate this PR: that is an API/permission fault,"
                 echo "NOT a missing check. Leaving PR for manual review."
-                exit 0
+                # FAIL, do not exit 0. A gate that cannot read check state is
+                # BLIND, not merely undecided — and an exit 0 here renders the
+                # outage invisible: measured 2026-08-11, this branch was taken
+                # on every Dependabot PR for 12 days (`gh: Bad credentials`,
+                # HTTP 401) while the job reported SUCCESS and merged nothing.
+                # A green check on a dead automation is worse than no
+                # automation, because it is read as "the gate ran and declined".
+                #
+                # Only THIS branch fails. Every other exit above and below is a
+                # DECIDED outcome and stays green: no gate mapped for the
+                # directory, a check that genuinely failed (already red on its
+                # own workflow), and a successful merge. The distinction is
+                # "the gate could not see" vs "the gate saw and said no".
+                exit 1
               fi
               sleep 30
               continue
