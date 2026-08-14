@@ -13,12 +13,17 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.golangci.yml'
+      # ops #2869 - a change to THIS file must re-run THIS workflow. Without
+      # it a workflow-only PR (such as the one that added the retried install
+      # step below) is merged having never executed the thing it edits.
+      - '.github/workflows/golangci-lint.yml'
   pull_request:
     paths:
       - '**/*.go'
       - 'go.mod'
       - 'go.sum'
       - '.golangci.yml'
+      - '.github/workflows/golangci-lint.yml'
   workflow_call:
 
 permissions:
@@ -68,14 +73,63 @@ jobs:
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
           echo "CGO_CFLAGS=-I $HOME/src/tensorflow" >> $GITHUB_ENV
 
+      # ops #2869 - install the linter ourselves, with retries, rather than
+      # letting the action single-shot the releases CDN.
+      #
+      # 2026-08-12, run 31644092113: the action's own download returned
+      # "socket hang up" and this job reported FAILURE with ZERO `.go:NN`
+      # diagnostics in the whole log - nothing was linted. Because
+      # docker-build.yml gates `build-and-push-docker-image` on
+      # `needs: golangci`, the dev container image for that commit (the one
+      # that landed gitleaks secret scanning) was never built, and main stayed
+      # red for ~28h before a human noticed. "lint could not download its
+      # binary" and "lint found problems" are different conditions that were
+      # indistinguishable from this job's conclusion.
+      #
+      # This does NOT change what gates the build - a real lint failure still
+      # fails the job. It takes the transient out of the equation, and when the
+      # download does fail terminally it fails in a step whose name says so.
+      - name: Install golangci-lint (retried, checksum-verified)
+        env:
+          # The action below runs whatever is on PATH, so with install-mode
+          # `none` this env var is the single source of the version.
+          GOLANGCI_LINT_VERSION: v2.12.2
+        run: |
+          set -euo pipefail
+          ver="${GOLANGCI_LINT_VERSION#v}"
+          dir="golangci-lint-${ver}-linux-amd64"
+          tarball="${dir}.tar.gz"
+          base="https://github.com/golangci/golangci-lint/releases/download/${GOLANGCI_LINT_VERSION}"
+          fetch() {
+            curl --fail --location --silent --show-error \
+                 --retry 5 --retry-delay 5 --retry-all-errors \
+                 --connect-timeout 15 --output "$1" "$2"
+          }
+          tmp="$(mktemp -d)"
+          fetch "${tmp}/${tarball}" "${base}/${tarball}"
+          fetch "${tmp}/checksums.txt" \
+                "${base}/golangci-lint-${ver}-checksums.txt"
+          # grep exits non-zero when the asset name is absent, and
+          # `sha256sum -c` rejects an empty list - so an upstream rename fails
+          # here loudly instead of silently skipping verification. Both of
+          # those directions were exercised before this shipped.
+          ( cd "$tmp" && grep " ${tarball}\$" checksums.txt > tarball.sha256 \
+              && sha256sum --check tarball.sha256 )
+          tar -xzf "${tmp}/${tarball}" -C "$tmp"
+          sudo install -m 0755 "${tmp}/${dir}/golangci-lint" \
+               /usr/local/bin/golangci-lint
+          rm -rf "$tmp"
+          golangci-lint --version
+
       - name: golangci-lint
         id: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          # Require: The version of golangci-lint to use.
-          # When `install-mode` is `binary` (default) the value can be v1.2 or v1.2.3 or `latest` to use the latest version.
-          # When `install-mode` is `goinstall` the value can be v1.2.3, `latest`, or the hash of a commit.
-          version: v2.12.2
+          # `none` = run the golangci-lint already on PATH, installed above with
+          # retries. In this mode the action ignores the `version` input, so it
+          # is deliberately not set here; the version lives in the install
+          # step's env, in one place.
+          install-mode: none
           # Show only new issues by default
           only-new-issues: false
           # Additional args for better output (v2.5.0+ syntax)
