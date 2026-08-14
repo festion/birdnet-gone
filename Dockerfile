@@ -43,8 +43,33 @@ WORKDIR /home/dev-user/src/BirdNET-Go
 # Copy all source files first to have Git information available
 COPY --chown=dev-user . ./
 
+# Enter Assets stage — architecture-INDEPENDENT work, built once for all targets.
+#
+# ops #2894: this stage deliberately does NOT declare `ARG TARGETPLATFORM`.
+# TARGETPLATFORM differs per target leg, so any stage declaring it gets a
+# distinct cache key per leg and BuildKit cannot dedupe it — the stage is
+# executed once per platform. Measured on CI run 31612039018, where the two
+# legs of one multi-platform build each independently ran `npm ci` (11.2s),
+# `npm run typecheck` (13.9s), `vite build` (6.8s) and the TensorFlow header
+# clone (23.1s): ~55s of the 124s stage, duplicated, producing identical bytes.
+#
+# Everything below is byte-identical for every target — Vite emits static
+# JS/CSS with nothing architecture-dependent in it, and check-tensorflow
+# sparse-clones C *headers*. Downloading the TFLite shared library is NOT in
+# this class and stays below, in the per-platform stage, where it belongs.
+FROM --platform=$BUILDPLATFORM buildenv AS assets
+
+# Skip puppeteer download during build (not needed for production)
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
+# Produces frontend/dist (consumed by frontend/embed.go's `//go:embed all:dist`)
+# and $HOME/src/tensorflow's headers. Both are inherited by the build stage
+# below, along with Task's .task/checksum fingerprints — which is what makes
+# the frontend-build dep of noembed_* a no-op there rather than a repeat.
+RUN task check-tensorflow && task frontend-build
+
 # Enter Build stage
-FROM --platform=$BUILDPLATFORM buildenv AS build
+FROM --platform=$BUILDPLATFORM assets AS build
 ARG BUILD_VERSION
 ENV BUILD_VERSION=${BUILD_VERSION:-unknown}
 
@@ -53,8 +78,14 @@ ARG TARGETPLATFORM
 # Skip puppeteer download during build (not needed for production)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-# Build assets and compile BirdNET-Go (non-embedded build)
-# Note: frontend-build (including Tailwind) is handled as a dependency of noembed_* tasks
+# Compile BirdNET-Go (non-embedded build).
+# frontend-build and check-tensorflow are still declared deps of the noembed_*
+# tasks and are still invoked here — they resolve to "up to date" against the
+# assets stage's output instead of re-running. Task 3.45.4's checksum method
+# checks that `generates` still EXIST as well as that `sources` are unchanged,
+# so this skips only when frontend/dist is genuinely present; if it ever were
+# not, the go:embed of that directory fails the compile loudly rather than
+# producing an image with a stale or missing frontend.
 RUN --mount=type=cache,target=/go/pkg/mod,uid=10001,gid=10001 \
     --mount=type=cache,target=/home/dev-user/.cache/go-build,uid=10001,gid=10001 \
     task check-tensorflow && \
