@@ -384,8 +384,6 @@ regexes = [
   # Older convention.
   '''<see Infisical:''',
   # --- repo-local, preserved across template syncs (ops #2830) ---
-  # `eyJ...` JWTs with `alg:none` test fixtures (3 dots literal then trailing).
-  '''eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.\s*['"]''',
   # ── REPO-LOCAL (ops #2830) ─────────────────────────────────────────────
   # `generic-bearer-token` captures the Go IDENTIFIER on the left of
   # `apiKey := settings.Realtime.Weather.*.APIKey` -- the variable name, not a
@@ -399,9 +397,12 @@ regexes = [
   '''^(Iv1\.|Ov23li)[A-Za-z0-9]{6,}$''',
   # --- repo-local, preserved across template syncs (ops #2830) ---
   # Dotted identifier chains from Go source (ops #2830). `generic-bearer-token`
-  # captures [A-Za-z0-9._-]{40,} after an `apiKey =`-style anchor, which a long
-  # Go field-access path satisfies. Letters/underscore ONLY and no digits, so a
-  # JWT or a ya29 token cannot match: both carry digits. Verified against a real
-  # dash-free HS256 JWT and a ya29 sample -- neither is suppressed.
+  # captures [A-Za-z0-9._-]{40,} after an `apiKey =`-style anchor, and a long Go
+  # field-access path satisfies it -- 3 such false positives in this repo.
+  #
+  # Letters and underscore ONLY, no digits: a JWT or a ya29 token cannot match,
+  # because both carry digits. Verified against a real dash-free HS256 JWT and a
+  # ya29 sample -- neither is suppressed. An earlier draft used [A-Za-z0-9_]* and
+  # DID suppress both; it was caught in review before it shipped.
   '''^[A-Za-z_]+(\.[A-Za-z_]+)+$''',
 ]
