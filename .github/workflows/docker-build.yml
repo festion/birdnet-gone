@@ -5,20 +5,39 @@ concurrency:
   group: docker-build-${{ github.ref }}
   cancel-in-progress: true
 
+# ops #2896 - the daily `schedule` trigger was REMOVED, not repaired.
+# It was added in the SAME commit (70681997, 2025-01-16) as the
+# `if: github.event_name == 'push'` gate on the build job below, and
+# `schedule` can never satisfy that condition. So the nightly never built:
+# 304 of 304 retained scheduled runs skipped the build job, and every one
+# reported `success`. A green run that builds nothing is a worse signal than
+# no run at all, because it reads as coverage. If a nightly build is wanted
+# again, add `schedule` to the build job's `if:` as well - the trigger alone
+# is not enough, which is exactly how this lasted 575 days.
 on:
-  schedule:
-    # Runs at 02:00 UTC every day
-    - cron: "0 2 * * *"
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - ".github/workflows/**"
-      - "**.md"
+    # An allowlist, not `paths-ignore`, so a PR that cannot affect the image
+    # does not pay for a build.
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "Taskfile.yml"
+      - "frontend/**"
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      # ops #2869 - a change to THIS file must re-run THIS workflow. The old
+      # `paths-ignore: .github/workflows/**` meant a workflow-only PR was
+      # merged having never executed the thing it edits.
+      - ".github/workflows/docker-build.yml"
   workflow_dispatch:
   push:
+    # `.github/workflows/**` deliberately NOT ignored here any more (ops #2869):
+    # excluding it is why #192's merge produced no container build at all, which
+    # in turn kept ops #2793's post-fix sample pinned at n=1.
     paths-ignore:
-      - ".github/workflows/**"
       - "**.md"
     branches:
       # Only run on push to main branch
@@ -27,6 +46,43 @@ on:
 jobs:
   golangci:
     uses: ./.github/workflows/golangci-lint.yml
+
+  # ops #2895 - the PRE-MERGE gate. Until this job existed, the only job that
+  # built the image was gated to push/workflow_dispatch on main, so a Dockerfile
+  # change reached the default branch having never been built anywhere: PR CI
+  # reported `build-and-push-docker-image: skipping` and read as green.
+  #
+  # DELIBERATELY single-platform and push-less:
+  #   - linux/amd64 only answers "does the image still build", which is the bulk
+  #     of the risk, at roughly half the cost of the multi-platform build. It
+  #     will NOT catch an arm64-only regression - that remains the push-to-main
+  #     build's job, and this gate must not be described as covering it.
+  #   - `push: false` and no `packages: write`, so a PR (including a fork PR)
+  #     cannot publish a tag or need a registry credential.
+  #   - reads the shared gha cache but deliberately does NOT write it, so PR
+  #     builds cannot evict the entries main's build depends on.
+  build-pr:
+    name: build (PR gate, linux/amd64, no push)
+    needs: golangci
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout GitHub Action
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build container image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          provenance: false
 
   build-and-push-docker-image:
     needs: golangci
