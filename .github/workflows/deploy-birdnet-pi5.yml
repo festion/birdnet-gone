@@ -108,6 +108,9 @@ jobs:
     timeout-minutes: 10
     env:
       VERSION: ${{ needs.build.outputs.version }}
+      RUN_URL: >-
+        ${{ github.server_url }}/${{ github.repository
+        }}/actions/runs/${{ github.run_id }}
       # Self-contained deploy identity (Vikunja #2004): `-i ~/.ssh/deploy_key`
       # pins the dedicated `birdnet-deploy@ci-cd` key written from the
       # DEPLOY_SSH_KEY secret by "Configure SSH" below — so this job no longer
@@ -118,6 +121,25 @@ jobs:
       # CI run failed exit-255 mid-stream without these.
       SSH_OPTS: "-i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
     steps:
+      # Only deploy/ is needed here — the binary arrives as an artifact from the
+      # build job, so a full checkout of the tree would be paid for nothing.
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: deploy
+
+      # Runs on a GREEN deploy, deliberately. The notification steps below are
+      # `if: success()` / `if: failure()`, so a broken alarm is only ever
+      # exercised during the incident that needed it — which is how ops #2480's
+      # dead alarm survived. This validates the credentials without sending
+      # anything, and is never fatal: a Pushover outage must not block shipping.
+      - name: Pushover preflight
+        if: ${{ !inputs.skip_pushover }}
+        env:
+          PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: bash deploy/pushover_notify.sh preflight
+
       - name: Configure SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -199,33 +221,27 @@ jobs:
 
           echo "✅ Health 200, VicoHome 200"
 
+      # Loud but NOT fatal — a Pushover outage must not turn a good deploy red.
+      # The preflight above is what carries the dead-alarm signal at ::error::
+      # level, and it runs on every deploy including this one.
       - name: Pushover notification (success)
         if: ${{ success() && !inputs.skip_pushover }}
         env:
-          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
-          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER_KEY }}
-        run: |
-          curl -s --max-time 10 \
-            --form-string "token=${PUSHOVER_TOKEN}" \
-            --form-string "user=${PUSHOVER_USER}" \
-            --form-string "title=BirdNET-Go deployed to Pi 5" \
-            --form-string "message=Version ${VERSION} is live on ${PI_HOST}." \
-            --form-string "priority=-1" \
-            https://api.pushover.net/1/messages.json > /dev/null
+          PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: bash deploy/pushover_notify.sh notify-success
 
+      # FATAL on failure, by design. This is the alarm; if it cannot fire, that
+      # must show as a red step rather than vanishing. The inline curl this
+      # replaces exited 0 on a Pushover rejection and discarded the body
+      # that said why — ops #2480 is the incident where exactly that told nobody
+      # about a genuinely failed production deploy.
       - name: Pushover notification (failure)
         if: ${{ failure() && !inputs.skip_pushover }}
         env:
-          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
-          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER_KEY }}
-        run: |
-          curl -s --max-time 10 \
-            --form-string "token=${PUSHOVER_TOKEN}" \
-            --form-string "user=${PUSHOVER_USER}" \
-            --form-string "title=BirdNET-Go deploy FAILED" \
-            --form-string "message=Version ${VERSION} failed to deploy to ${PI_HOST}. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --form-string "priority=1" \
-            https://api.pushover.net/1/messages.json > /dev/null
+          PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+        run: bash deploy/pushover_notify.sh notify
 
       - name: Clean up deploy key
         if: ${{ always() }}
