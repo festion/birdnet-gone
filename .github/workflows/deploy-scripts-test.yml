@@ -1,0 +1,49 @@
+---
+# Runs the shell tests for deploy/ on every change that could break them.
+#
+# Why this workflow exists at all (ops #2914): the alarm it covers lives in
+# `if: failure()` steps, so before this it could only ever be exercised by
+# failing a real production deploy. A merged-but-unexercised control reads
+# exactly like a working one — which is how ops #2480's dead alarm survived.
+name: Deploy scripts tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/**'
+      - '.github/workflows/deploy-birdnet-pi5.yml'
+      - '.github/workflows/deploy-scripts-test.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - '.github/workflows/deploy-birdnet-pi5.yml'
+      - '.github/workflows/deploy-scripts-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-tests:
+    name: deploy/ shell tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Lint deploy scripts
+        run: |
+          shellcheck --version
+          shellcheck -S warning deploy/pushover_notify.sh \
+                                deploy/tests/test_pushover_notify.sh
+
+      # The suite drives a real curl against a local stub HTTP server rather
+      # than stubbing the call out, so the HTTP path itself is exercised. It
+      # also asserts that deploy-birdnet-pi5.yml actually invokes the script —
+      # a control that ships but is never wired is the failure this card is
+      # about, and the guard carries its own positive control so a broken
+      # matcher cannot report a clean result.
+      - name: Run pushover_notify tests
+        run: bash deploy/tests/test_pushover_notify.sh
