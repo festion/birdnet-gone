@@ -9,7 +9,7 @@ https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 ### cloud.google.com/go/auth
 
-License: https://github.com/googleapis/google-cloud-go/blob/auth/v0.22.0/auth/LICENSE
+License: https://github.com/googleapis/google-cloud-go/blob/auth/v0.23.0/auth/LICENSE
 Source: Apache-2.0
 
 ### cloud.google.com/go/auth/oauth2adapt
@@ -41,11 +41,6 @@ Source: MIT
 
 License: https://github.com/cespare/xxhash/blob/v2.3.0/LICENSE.txt
 Source: MIT
-
-### github.com/davecgh/go-spew/spew
-
-License: https://github.com/davecgh/go-spew/blob/d8f796af33cc/LICENSE
-Source: ISC
 
 ### github.com/eaburns/bit
 
@@ -144,7 +139,7 @@ Source: BSD-3-Clause
 
 ### github.com/googleapis/enterprise-certificate-proxy/client
 
-License: https://github.com/googleapis/enterprise-certificate-proxy/blob/v0.3.19/LICENSE
+License: https://github.com/googleapis/enterprise-certificate-proxy/blob/v0.3.20/LICENSE
 Source: Apache-2.0
 
 ### github.com/googleapis/gax-go/v2
@@ -272,11 +267,6 @@ Source: MIT
 License: https://github.com/pkg/sftp/blob/v1.13.11/LICENSE
 Source: BSD-2-Clause
 
-### github.com/pmezard/go-difflib/difflib
-
-License: https://github.com/pmezard/go-difflib/blob/5d4384ee4fb2/LICENSE
-Source: BSD-3-Clause
-
 ### github.com/prometheus/client_golang/prometheus
 
 License: https://github.com/prometheus/client_golang/blob/v1.24.1/LICENSE
@@ -349,7 +339,7 @@ Source: MIT
 
 ### github.com/stretchr/testify
 
-License: https://github.com/stretchr/testify/blob/v1.11.1/LICENSE
+License: https://github.com/stretchr/testify/blob/v1.12.0/LICENSE
 Source: MIT
 
 ### github.com/subosito/gotenv
@@ -449,12 +439,12 @@ Source: MIT
 
 ### golang.org/x/crypto
 
-License: https://cs.opensource.google/go/x/crypto/+/v0.54.0:LICENSE
+License: https://cs.opensource.google/go/x/crypto/+/v0.55.0:LICENSE
 Source: BSD-3-Clause
 
 ### golang.org/x/net
 
-License: https://cs.opensource.google/go/x/net/+/v0.57.0:LICENSE
+License: https://cs.opensource.google/go/x/net/+/v0.58.0:LICENSE
 Source: BSD-3-Clause
 
 ### golang.org/x/oauth2
@@ -479,7 +469,7 @@ Source: BSD-3-Clause
 
 ### golang.org/x/text
 
-License: https://cs.opensource.google/go/x/text/+/v0.40.0:LICENSE
+License: https://cs.opensource.google/go/x/text/+/v0.41.0:LICENSE
 Source: BSD-3-Clause
 
 ### golang.org/x/time/rate
@@ -489,12 +479,12 @@ Source: BSD-3-Clause
 
 ### google.golang.org/api
 
-License: https://github.com/googleapis/google-api-go-client/blob/v0.292.0/LICENSE
+License: https://github.com/googleapis/google-api-go-client/blob/v0.293.0/LICENSE
 Source: BSD-3-Clause
 
 ### google.golang.org/genproto/googleapis/rpc
 
-License: https://github.com/googleapis/go-genproto/blob/6ac0973c030d/googleapis/rpc/LICENSE
+License: https://github.com/googleapis/go-genproto/blob/c8921c73eeea/googleapis/rpc/LICENSE
 Source: Apache-2.0
 
 ### google.golang.org/grpc
