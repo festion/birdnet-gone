@@ -16,8 +16,9 @@ users:
     groups: sudo, docker, audio, adm
     shell: /bin/bash
     sudo: ALL=(ALL:ALL) ALL  # Require password for sudo
-    # Default password: birdnetgo (users should change this!)
-    passwd: $6$EElFeIVWP.uml/Oq$1Z1gOERvk6msgG4FFVYF7SPJswV1CKTK..fcDJ6wPZaymXdHC8kc7MyPoxFOvRH2l9r.ky6U7kjYlLGWlDDGw.
+    # Password hash is injected at build time from the REQUIRED packer
+    # variable `birdnet_password_hash`. There is no default (ops #3052).
+    passwd: ${birdnet_password_hash}
     lock_passwd: false
     # Force password change on first login
     chpasswd:
@@ -60,7 +61,7 @@ write_files:
       ║  Welcome to your BirdNET-Go virtual machine!                        ║
       ║                                                                      ║
       ║  🔐 SECURITY NOTICE:                                                 ║
-      ║  • Default password: birdnetgo                                       ║
+      ║  • Your password was set when this image was built                   ║
       ║  • Please change your password immediately: passwd                   ║
       ║  • Consider setting up SSH keys for better security                  ║
       ║                                                                      ║
@@ -164,4 +165,4 @@ runcmd:
   - cut -d: -f1,3 /etc/passwd | grep -E ":(1000|1001):" >> /var/log/cloud-init-output.log 2>&1
 
 # Final message
-final_message: "BirdNET-Go VM is ready! Default user: birdnet, password: birdnetgo (CHANGE THIS!)" 
+final_message: "BirdNET-Go VM is ready. Change your password with `passwd` before exposing this host." 

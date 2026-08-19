@@ -98,6 +98,22 @@ variable "ssh_private_key_file" {
   default     = ""
 }
 
+variable "birdnet_password_hash" {
+  type        = string
+  description = <<-EOT
+    SHA-512 crypt hash for the `birdnet` account, e.g. `openssl passwd -6`.
+
+    REQUIRED, with no default, deliberately: this image previously baked a
+    known password whose plaintext was published in the repo, the README and
+    the generated release notes (ops #3052). A build must now FAIL rather than
+    silently ship a credential that is guessable from the project name.
+
+    Prefer key-only access where you can — pass `ssh_public_key` and leave
+    password login unused.
+  EOT
+  sensitive   = true
+}
+
 variable "use_kvm" {
   type        = bool
   description = "Whether to use KVM acceleration (disable for CI environments)"
@@ -161,9 +177,10 @@ source "qemu" "birdnet-go" {
       hostname = "birdnet-go"
     })
     "user-data" = templatefile("${path.root}/templates/user-data.yml", {
-      ssh_public_key = var.ssh_public_key
-      version       = var.version
-      arch          = var.arch
+      ssh_public_key        = var.ssh_public_key
+      version               = var.version
+      arch                  = var.arch
+      birdnet_password_hash = var.birdnet_password_hash
     })
   }
   cd_label = "cidata"
@@ -212,10 +229,11 @@ build {
       "cat /home/birdnet-build/.ssh/authorized_keys 2>/dev/null || echo 'No authorized_keys file'",
       "echo 'SSH config:'",
       "sudo grep -E '(PasswordAuthentication|PubkeyAuthentication|AllowUsers)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null || echo 'No relevant SSH config found'",
-      "echo 'Testing password auth for build user:'",
-      "echo 'birdnet-build-temp' | sudo -S -u birdnet-build whoami 2>/dev/null && echo 'Build password works' || echo 'Build password failed'",
-      "echo 'Testing password auth for end user:'",
-      "echo 'birdnetgo' | sudo -S -u birdnet whoami 2>/dev/null && echo 'End user password works' || echo 'End user password failed'",
+      # REMOVED (ops #3052): these probes echoed both account passwords in
+      # clear into the build log, and piped them to `sudo -S`. A public repo
+      # publishes its Actions logs, so this leaked on every run that reached
+      # this step. Password auth is not what the build uses -- it connects
+      # with the key in `ssh_public_key` -- so nothing here was diagnostic.
       "echo 'SSH debugging completed'"
     ]
   }
