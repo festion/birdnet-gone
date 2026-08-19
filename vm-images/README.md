@@ -204,6 +204,22 @@ runcmd:
 - Initial audio device configuration
 - BirdNET-Go settings
 
+## Building: the password is required
+
+This image ships **no default password**. `birdnet_password_hash` is a required
+Packer variable with no default, so a build fails rather than silently shipping
+a credential that is guessable from the project name (ops #3052).
+
+```bash
+# generate a SHA-512 crypt hash for the birdnet account
+HASH=$(openssl passwd -6)
+packer build -var "birdnet_password_hash=$HASH" birdnet-go-vm.pkr.hcl
+```
+
+In CI the hash comes from the `VM_BIRDNET_PASSWORD_HASH` repository secret; the
+workflow fails with an explicit error if it is unset. Prefer key-only access
+where you can: pass `ssh_public_key` and leave password login unused.
+
 ## Security Features
 
 ### **Default Security:**
@@ -625,8 +641,9 @@ Perfect for:
 ### Default User Account
 
 - **Username**: `birdnet`
-- **Default Password**: `birdnetgo`
-- **⚠️ IMPORTANT**: Change the default password immediately after first login!
+- **Password**: set at build time from the required `birdnet_password_hash` variable.
+  **This image has no default password** — builds fail closed if none is supplied (ops #3052).
+- **⚠️ IMPORTANT**: Change it immediately after first login, and prefer SSH keys.
 
 ### Security Features
 
@@ -667,7 +684,7 @@ Perfect for:
 
 ### Security Recommendations
 
-- **Change Default Password**: Always change from `birdnetgo` to a strong password
+- **Change the Build-Time Password**: replace it with a strong, unique password on first login
 - **Use SSH Keys**: More secure than password authentication
 - **Enable Firewall**: Consider enabling `ufw` for additional protection
 - **Regular Updates**: Keep system updated with `sudo apt update && sudo apt upgrade`
@@ -721,7 +738,7 @@ Perfect for:
    ```bash
    # SSH to VM (adjust port if needed)
    ssh -p 2222 birdnet@localhost
-   # Default password: birdnetgo (CHANGE THIS!)
+   # Password: whatever was supplied at build time (CHANGE THIS!)
    ```
 
 5. **Access Web Interface**:

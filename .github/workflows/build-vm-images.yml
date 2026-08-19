@@ -143,6 +143,7 @@ jobs:
         env:
           PACKER_LOG: 1
           PACKER_LOG_PATH: packer-build.log
+          BIRDNET_PASSWORD_HASH: ${{ secrets.VM_BIRDNET_PASSWORD_HASH }}
         run: |
           echo "🏗️ Building VM image for ${{ matrix.arch }}..."
           echo "ℹ️  Using TCG acceleration (no KVM in GitHub Actions)"
@@ -153,6 +154,17 @@ jobs:
           echo "🔍 SSH public key:"
           cat build_key.pub
           
+          # ops #3052: the image used to bake a known password whose plaintext
+          # was published here and in the README. There is no default any more,
+          # so the build FAILS CLOSED if no hash is supplied.
+          if [ -z "${BIRDNET_PASSWORD_HASH}" ]; then
+            echo "::error::Repository secret VM_BIRDNET_PASSWORD_HASH is not set."
+            echo "This image no longer ships a default password (ops #3052)."
+            echo "Set it to a SHA-512 crypt hash, e.g.:  openssl passwd -6"
+            echo "Refusing to build rather than ship a known credential."
+            exit 1
+          fi
+
           SSH_PUBLIC_KEY=$(cat build_key.pub)
           packer build \
             -var "version=${{ steps.version.outputs.version }}" \
@@ -160,6 +172,7 @@ jobs:
             -var "ssh_public_key=$SSH_PUBLIC_KEY" \
             -var "ssh_private_key_file=build_key" \
             -var "use_kvm=false" \
+            -var "birdnet_password_hash=$BIRDNET_PASSWORD_HASH" \
             birdnet-go-vm.pkr.hcl || {
               echo "❌ Packer build failed. Showing debug logs:"
               echo "📋 Last 100 lines of Packer log:"
@@ -224,10 +237,10 @@ jobs:
           
           ## 🔐 Security Information
           
-          **Default User Account:**
+          **User Account:**
           - Username: \`birdnet\`
-          - Password: \`birdnetgo\`
-          - **⚠️ IMPORTANT: Change the default password immediately after first login!**
+          - Password: set at build time from a repository secret — **this image has no published default** (ops #3052)
+          - **⚠️ Change it immediately after first login, and prefer SSH keys over password auth.**
           
           **Security Features:**
           - Password and SSH key authentication enabled
@@ -242,7 +255,7 @@ jobs:
           3. **Decompress**: \`zstd -d *.qcow2.zst\`
           4. **Create** a separate data disk: \`qemu-img create -f qcow2 birdnet-go-data.qcow2 50G\`
           5. **Deploy** VM with both disks attached
-          6. **Login** via SSH: \`ssh birdnet@vm-ip\` (password: \`birdnetgo\`)
+          6. **Login** via SSH: \`ssh birdnet@vm-ip\` (password: the one set at build time)
           7. **Change password**: \`passwd\` (REQUIRED for security)
           8. **Access** web interface: \`http://vm-ip:8080\`
           
