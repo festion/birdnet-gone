@@ -31,8 +31,52 @@ permissions:
   #pull-requests: read
 
 jobs:
+  # ops #2869 - the frontend build is its OWN job, because a frontend build
+  # failure is not a lint failure.
+  #
+  # Measured 2026-08-21 over the 32 lint-job failures whose logs had not yet
+  # expired: 13 of them - 41% - were `Build Frontend` failing with
+  # golangci-lint SKIPPED. The linter never ran, yet the job reported a lint
+  # failure, and via `needs: golangci` in docker-build.yml that also suppressed
+  # the container image. Unlike the 2026-08-12 download hang-up this is not a
+  # transient: it recurs on every frontend dependency bump that does not build.
+  #
+  # This does NOT loosen the gate. If `frontend` fails, `golangci` is skipped,
+  # the called workflow still fails, and the image is still suppressed - there
+  # is no window in which an image publishes unlinted. What changes is that the
+  # red job is named for what actually broke, and `lint` now means lint.
+  frontend:
+    name: frontend build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      # `frontend/dist` is gitignored and NOTHING is tracked under it (the
+      # `!dist/.gitkeep` negation in frontend/.gitignore never took effect - the
+      # file was never added). So `//go:embed all:dist` in frontend/embed.go
+      # cannot COMPILE on a fresh checkout, and the lint job genuinely needs
+      # these bytes. `if-no-files-found: error` so an empty build fails here
+      # rather than downstream as a confusing compile error.
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 1
+
   golangci:
     name: lint
+    needs: frontend
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -56,18 +100,26 @@ jobs:
 
       - name: Install dependencies
         run: task check-tensorflow
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v7
         with:
-          node-version: '24'
-          
-      - name: Build Frontend
+          name: frontend-dist
+          path: frontend/dist
+
+      # A positive control on the artifact, not decoration. If the download
+      # silently produced nothing, `//go:embed all:dist` would fail to compile
+      # and surface as a golangci-lint error - i.e. exactly the
+      # not-really-a-lint-failure this card is about, reintroduced through the
+      # new plumbing. Fail here, in a step whose name says what is wrong.
+      - name: Assert the embedded frontend is present
         run: |
-          cd frontend
-          npm install
-          npm run build
-      
+          set -euo pipefail
+          test -d frontend/dist || { echo "frontend/dist missing after download"; exit 1; }
+          n="$(find frontend/dist -type f | wc -l)"
+          echo "frontend/dist contains ${n} file(s)"
+          [ "$n" -gt 0 ] || { echo "frontend/dist is EMPTY - the embed cannot compile"; exit 1; }
+
       - name: Set environment variables for CGO
         run: |
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
@@ -135,8 +187,17 @@ jobs:
           # Additional args for better output (v2.5.0+ syntax)
           args: --output.checkstyle.path=golangci-lint-report.xml
 
+      # ops #2869 - the `else` arm below used to print a white check mark and
+      # "Linting Completed" whenever no report file existed. A missing report
+      # means one of two opposite things: the linter ran and found nothing, or
+      # the linter never ran at all. Reporting the second as the first is the
+      # "green having linted nothing" hazard this card was filed about,
+      # arriving through the summary instead of the job status. The lint step's
+      # own outcome is what tells them apart.
       - name: Generate lint summary
         if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.golangci-lint.outcome }}
         run: |
           if [ -f golangci-lint-report.xml ]; then
             # Count issues by severity
@@ -172,10 +233,15 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "All checks passed!" >> $GITHUB_STEP_SUMMARY
             fi
-          else
+          elif [ "${LINT_OUTCOME}" = "success" ]; then
             echo "## :white_check_mark: Linting Completed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "No issues found or linter did not generate report." >> $GITHUB_STEP_SUMMARY
+            echo "golangci-lint succeeded and produced no report file." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## :x: golangci-lint did NOT complete (outcome: ${LINT_OUTCOME})" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No report was produced because the linter did not run to" >> $GITHUB_STEP_SUMMARY
+            echo "completion. **This is not a clean result** - nothing was linted." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload lint report
