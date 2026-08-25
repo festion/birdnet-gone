@@ -74,7 +74,7 @@ Source: BSD-3-Clause
 
 ### github.com/gen2brain/malgo
 
-License: https://github.com/gen2brain/malgo/blob/v0.11.25/LICENSE
+License: https://github.com/gen2brain/malgo/blob/v0.11.26/LICENSE
 Source: Unlicense
 
 ### github.com/getsentry/sentry-go
@@ -179,7 +179,7 @@ Source: MIT
 
 ### github.com/jlaffaye/ftp
 
-License: https://github.com/jlaffaye/ftp/blob/v0.2.2/LICENSE
+License: https://github.com/jlaffaye/ftp/blob/v0.2.4/LICENSE
 Source: ISC
 
 ### github.com/k3a/html2text
@@ -234,7 +234,7 @@ Source: MIT
 
 ### github.com/mattn/go-sqlite3
 
-License: https://github.com/mattn/go-sqlite3/blob/v1.14.49/LICENSE
+License: https://github.com/mattn/go-sqlite3/blob/v1.14.50/LICENSE
 Source: MIT
 
 ### github.com/munnerz/goautoneg
@@ -244,12 +244,12 @@ Source: BSD-3-Clause
 
 ### github.com/nicholas-fedor/shoutrrr
 
-License: https://github.com/nicholas-fedor/shoutrrr/blob/v0.17.0/LICENSE.md
+License: https://github.com/nicholas-fedor/shoutrrr/blob/v0.17.1/LICENSE.md
 Source: MIT
 
 ### github.com/nicholas-fedor/shoutrrr/pkg/color
 
-License: https://github.com/nicholas-fedor/shoutrrr/blob/v0.17.0/pkg/color/LICENSE.md
+License: https://github.com/nicholas-fedor/shoutrrr/blob/v0.17.1/pkg/color/LICENSE.md
 Source: MIT
 
 ### github.com/patrickmn/go-cache
@@ -339,7 +339,7 @@ Source: MIT
 
 ### github.com/stretchr/testify
 
-License: https://github.com/stretchr/testify/blob/v1.12.0/LICENSE
+License: https://github.com/stretchr/testify/blob/v1.12.1/LICENSE
 Source: MIT
 
 ### github.com/subosito/gotenv
@@ -389,7 +389,7 @@ Source: MIT
 
 ### github.com/tphakala/simd
 
-License: https://github.com/tphakala/simd/blob/v1.8.0/LICENSE
+License: https://github.com/tphakala/simd/blob/v1.9.0/LICENSE
 Source: MIT
 
 ### github.com/valyala/bytebufferpool
@@ -494,7 +494,7 @@ Source: Apache-2.0
 
 ### google.golang.org/protobuf
 
-License: https://github.com/protocolbuffers/protobuf-go/blob/v1.36.11/LICENSE
+License: https://github.com/protocolbuffers/protobuf-go/blob/v1.36.12/LICENSE
 Source: BSD-3-Clause
 
 ### gopkg.in/yaml.v3
