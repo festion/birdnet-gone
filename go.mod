@@ -6,17 +6,17 @@ require (
 	github.com/antonholmquist/jason v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/fatih/color v1.19.0
-	github.com/gen2brain/malgo v0.11.25
+	github.com/gen2brain/malgo v0.11.26
 	github.com/getsentry/sentry-go v0.48.0
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/wav v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/jarcoal/httpmock v1.4.2
-	github.com/jlaffaye/ftp v0.2.2
+	github.com/jlaffaye/ftp v0.2.4
 	github.com/k3a/html2text v1.4.0
 	github.com/klauspost/cpuid/v2 v2.4.0
 	github.com/labstack/echo/v4 v4.15.4
-	github.com/nicholas-fedor/shoutrrr v0.17.0
+	github.com/nicholas-fedor/shoutrrr v0.17.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/sftp v1.13.11
 	github.com/prometheus/client_golang v1.24.1
@@ -26,10 +26,10 @@ require (
 	github.com/smallnest/ringbuffer v0.1.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/tphakala/flac v0.0.0-20241217200312-20d6d98f5ee3
 	github.com/tphakala/go-tflite v0.2.1
-	github.com/tphakala/simd v1.8.0
+	github.com/tphakala/simd v1.9.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.58.0
@@ -92,7 +92,7 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
-	github.com/mattn/go-sqlite3 v1.14.49
+	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
@@ -113,7 +113,7 @@ require (
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/time v0.15.0
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
 
 replace github.com/markbates/goth => github.com/tphakala/goth v0.0.0-20251225195455-a4b17a573e8f
