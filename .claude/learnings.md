@@ -5,6 +5,25 @@
 
 ---
 
+### The RPi kernel 6.12.62 ALSA/malgo regression is RESOLVED and the apt hold is gone — keep the DETECTION RECIPE, because this failure is silent: sound levels keep flowing while capture is dead — 2026-09-02
+- **Rescued from `festion/birdnet-go`'s own `.claude/learnings.md`** (entry dated 2026-02-21) before that fork is deleted. It was the only record of the pin anywhere: `grep rpt-rpi-v8` over this file returned 0 and `memory-search` found nothing. The fork carried no other unique knowledge.
+- **The original finding (2026-02-21):** Raspberry Pi kernel `6.12.62+rpt-rpi-v8` had an ALSA regression that broke `malgo` (miniaudio) audio capture into the analysis pipeline. Mitigation was an apt hold pinning `6.12.47+rpt-rpi-v8`, holding `linux-image-rpi-v8` and `linux-image-6.12.47+rpt-rpi-v8`.
+- **⚠ Why it was worth keeping at all — the failure is MASKED.** Sound-level monitoring is a separate code path and keeps publishing normally while detections stop, so every dashboard and MQTT topic that looks at levels reads healthy. Same family as `Sound levels ≠ detections — separate code paths`.
+- **⚠ And the break is LATENT.** apt installs a kernel package without rebooting, so the regression arrives weeks later at the next reboot, decoupled from the change that caused it. A working system is not evidence the hold is unnecessary; it is evidence you have not rebooted.
+- **RESOLVED — measured on the Pi 2026-09-02:**
+```
+uname -r                6.12.75+rpt-rpi-2712     (past the broken 6.12.62)
+apt-mark showhold       (empty)                  no holds remain
+dpkg -l linux-image*    6.12.75 only             the pinned 6.12.47 is gone
+lsof -p $(pgrep -f "birdnet-go realtime") | grep -c /dev/snd   ->  3
+process uptime          57m                      capture is live
+```
+  So the hold was released at some point and the Pi has been running a much newer kernel with working capture. **Nothing to re-apply.**
+- **One detail the old entry got wrong for this hardware:** it pinned the `rpi-v8` flavour, but the Pi 5 boots `rpt-rpi-**2712**` (the BCM2712 SoC). A hold on `linux-image-rpi-v8` would not have pinned the kernel this machine actually runs. Worth remembering if a future pin is ever needed here: **check `uname -r` for the flavour before choosing the package to hold.**
+- **The durable part — how to detect this class:** birdnet-go starts cleanly, `events_received` stays 0, and `birdnet/soundlevel` still gets fresh `ts` values. Then:
+  - `~/logs/audio.log` for `audio device validation failed` — the main `birdnet-go.log` says nothing.
+  - `lsof -p $(pgrep -f "birdnet-go realtime") | grep snd` — **no `/dev/snd/pcmC*` fd means the device was never opened.** A healthy process here holds 3.
+
 ### Re-pairing the BOYA Magic transmitter produces NO USB re-enumeration — dmesg cannot tell you whether a re-pair happened, and the health-check log lags up to 15 min; only live AMPLITUDE settles it — 2026-07-26
 - **Context:** mid-desync on 07-26 the user re-paired the mic. `dmesg -T | grep "Product: BOYA Magic"` still showed **07-21 08:33** as the most recent event, and `/var/log/birdnet-health-check.log`'s newest tick (11:33) still read `zero-amplitude desync (median=-200.0 dB)`. Both signals said "still broken"; the mic was fine.
 - **Why:** the USB **receiver dongle never unplugs** during a transmitter re-pair, so there is nothing to re-enumerate. And the watchdog samples on a `3,18,33,48` cron, so its log is up to 15 minutes stale — after a recovery it keeps showing the last desync tick until the next run.
