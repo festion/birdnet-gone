@@ -1,0 +1,10 @@
+# ripgrep-only. These paths are TRACKED but gitignored, and git exempts
+# tracked files from .gitignore while ripgrep does not -- so they are
+# committed, diffed and shipped through PRs while being invisible to search.
+# Re-included here for rg only; nothing about git changes.
+#
+# NOT included: LICENSES.md. It is a SYMLINK to frontend/static/LICENSES.md,
+# which rg already lists, so its content is searchable via the real path and a
+# negation here would be a no-op. rg does not follow symlinks without
+# --follow, and that is correct rather than a defect.
+!docs/plans/
