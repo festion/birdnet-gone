@@ -72,6 +72,21 @@ updates:
           - "rollup"
         update-types:
           - "major"
+      vite-toolchain-security:
+        # `applies-to` defaults to "version-updates", so vite-toolchain above is
+        # INVISIBLE to the security-update path -- a security advisory bumping
+        # vite (or a peer) arrives ungrouped and splits the family, ERESOLVE-ing
+        # `npm ci`. This mirror covers the security path. Measured in ops #2964
+        # on proxmox-agent (PR #126); this repo shares that generated config and
+        # had the same gap (fleet sweep ops #3902). No update-types filter here:
+        # a security fix arrives as whatever major/minor upstream shipped it in.
+        applies-to: security-updates
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vite-plugin-*"
+          - "@sveltejs/vite-plugin-*"
+          - "rollup"
       npm-minor-patch:
         patterns:
           - "*"
