@@ -1,0 +1,11 @@
+# git attributes
+
+# .claude/PROJECT_INDEX.md is generated — `git pushx` regenerates it on every
+# feature branch. Two branches touching different source files still produce
+# different index content, so a plain 3-way merge reports a CONFLICT on a file
+# neither author edited (workspace-1pu). `merge=union` is a BUILT-IN driver, so
+# there is no per-clone git config that could be silently absent, and GitHub
+# honours it server-side — the PR does not conflict. The index is a line-based
+# list, so union keeps shared lines once and both sides' unique entries; the
+# next pushx regenerates a clean one. No-op wherever this file does not exist.
+.claude/PROJECT_INDEX.md merge=union
