@@ -19,6 +19,7 @@
         ]
       }
     ],
+    "at-rule-prelude-no-invalid": [true, { "ignoreAtRules": ["apply"] }],
     "at-rule-empty-line-before": [
       "always",
       {
