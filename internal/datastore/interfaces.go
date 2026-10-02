@@ -189,16 +189,12 @@ func New(settings *conf.Settings) Interface {
 	case settings.Output.SQLite.Enabled:
 		return &SQLiteStore{
 			Settings: settings,
-			DataStore: DataStore{
-				SunCalc: sunCalc,
-			},
+			SunCalc:  sunCalc,
 		}
 	case settings.Output.MySQL.Enabled:
 		return &MySQLStore{
 			Settings: settings,
-			DataStore: DataStore{
-				SunCalc: sunCalc,
-			},
+			SunCalc:  sunCalc,
 		}
 	default:
 		// Consider handling the case where neither database is enabled

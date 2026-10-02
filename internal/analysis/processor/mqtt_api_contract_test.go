@@ -19,7 +19,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tphakala/birdnet-go/internal/datastore"
 	"github.com/tphakala/birdnet-go/internal/imageprovider"
 )
 
@@ -112,22 +111,20 @@ func TestMQTTAPIContract_NoteWithBirdImage_FieldNames(t *testing.T) {
 
 	// Create a complete NoteWithBirdImage struct with all fields populated
 	note := NoteWithBirdImage{
-		Note: datastore.Note{
-			ID:             12345, // Simulated database ID
-			CommonName:     "American Robin",
-			ScientificName: "Turdus migratorius",
-			Confidence:     0.95,
-			Date:           "2024-01-15",
-			Time:           "12:00:00",
-			Latitude:       42.3601,
-			Longitude:      -71.0589,
-			ClipName:       "test_clip.wav",
-			ProcessingTime: 150 * time.Millisecond,
-			Occurrence:     0.75,
-			Source:         testAudioSource(),
-		},
-		DetectionID: 12345, // Should match Note.ID for URL construction
-		SourceID:    "test-source-1",
+		ID:             12345, // Simulated database ID
+		CommonName:     "American Robin",
+		ScientificName: "Turdus migratorius",
+		Confidence:     0.95,
+		Date:           "2024-01-15",
+		Time:           "12:00:00",
+		Latitude:       42.3601,
+		Longitude:      -71.0589,
+		ClipName:       "test_clip.wav",
+		ProcessingTime: 150 * time.Millisecond,
+		Occurrence:     0.75,
+		Source:         testAudioSource(),
+		DetectionID:    12345, // Should match Note.ID for URL construction
+		SourceID:       "test-source-1",
 		BirdImage: imageprovider.BirdImage{
 			URL:            "https://example.com/bird.jpg",
 			ScientificName: "Turdus migratorius",
@@ -246,13 +243,11 @@ func TestMQTTAPIContract_BirdImageURL_Accessible(t *testing.T) {
 	t.Parallel()
 
 	note := NoteWithBirdImage{
-		Note: datastore.Note{
-			CommonName:     "American Robin",
-			ScientificName: "Turdus migratorius",
-			Confidence:     0.88,
-			Source:         testAudioSource(),
-		},
-		SourceID: "backyard-mic",
+		CommonName:     "American Robin",
+		ScientificName: "Turdus migratorius",
+		Confidence:     0.88,
+		Source:         testAudioSource(),
+		SourceID:       "backyard-mic",
 		BirdImage: imageprovider.BirdImage{
 			URL:            "https://upload.wikimedia.org/bird.jpg",
 			ScientificName: "Turdus migratorius",
@@ -303,15 +298,13 @@ func TestMQTTAPIContract_OccurrenceOmittedWhenZero(t *testing.T) {
 	t.Parallel()
 
 	note := NoteWithBirdImage{
-		Note: datastore.Note{
-			CommonName:     "Blue Jay",
-			ScientificName: "Cyanocitta cristata",
-			Confidence:     0.92,
-			Occurrence:     0.0, // Zero - should be omitted
-			Source:         testAudioSource(),
-		},
-		SourceID:  "test-source",
-		BirdImage: imageprovider.BirdImage{},
+		CommonName:     "Blue Jay",
+		ScientificName: "Cyanocitta cristata",
+		Confidence:     0.92,
+		Occurrence:     0.0, // Zero - should be omitted
+		Source:         testAudioSource(),
+		SourceID:       "test-source",
+		BirdImage:      imageprovider.BirdImage{},
 	}
 
 	jsonData, err := json.Marshal(note)
@@ -333,22 +326,20 @@ func TestMQTTAPIContract_AllExpectedFieldsPresent(t *testing.T) {
 	t.Parallel()
 
 	note := NoteWithBirdImage{
-		Note: datastore.Note{
-			ID:             67890, // Database primary key
-			CommonName:     "House Sparrow",
-			ScientificName: "Passer domesticus",
-			Confidence:     0.87,
-			Date:           "2024-06-15",
-			Time:           "08:30:00",
-			Latitude:       34.0522,
-			Longitude:      -118.2437,
-			ClipName:       "detection_001.wav",
-			ProcessingTime: 125 * time.Millisecond,
-			Occurrence:     0.65,
-			Source:         testAudioSource(),
-		},
-		DetectionID: 67890, // Should match Note.ID for URL construction
-		SourceID:    "garden-mic",
+		ID:             67890, // Database primary key
+		CommonName:     "House Sparrow",
+		ScientificName: "Passer domesticus",
+		Confidence:     0.87,
+		Date:           "2024-06-15",
+		Time:           "08:30:00",
+		Latitude:       34.0522,
+		Longitude:      -118.2437,
+		ClipName:       "detection_001.wav",
+		ProcessingTime: 125 * time.Millisecond,
+		Occurrence:     0.65,
+		Source:         testAudioSource(),
+		DetectionID:    67890, // Should match Note.ID for URL construction
+		SourceID:       "garden-mic",
 		BirdImage: imageprovider.BirdImage{
 			URL:            "https://example.com/sparrow.jpg",
 			ScientificName: "Passer domesticus",
@@ -421,13 +412,11 @@ func TestMQTTAPIContract_NoUnexpectedCamelCaseConversions(t *testing.T) {
 	t.Parallel()
 
 	note := NoteWithBirdImage{
-		Note: datastore.Note{
-			CommonName:     "Test Bird",
-			ScientificName: "Testus birdus",
-			Confidence:     0.9,
-			Source:         testAudioSource(),
-		},
-		SourceID: "test",
+		CommonName:     "Test Bird",
+		ScientificName: "Testus birdus",
+		Confidence:     0.9,
+		Source:         testAudioSource(),
+		SourceID:       "test",
 		BirdImage: imageprovider.BirdImage{
 			URL: "https://example.com/test.jpg",
 		},

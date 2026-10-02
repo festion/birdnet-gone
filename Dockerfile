@@ -1,7 +1,7 @@
 ARG TFLITE_LIB_DIR=/usr/lib
 ARG TENSORFLOW_VERSION=2.17.1
 
-# Track go.mod's `go 1.26` requirement (floating minor; not dependabot-managed).
+# Track go.mod's `go 1.27` requirement (floating minor; not dependabot-managed).
 FROM --platform=$BUILDPLATFORM golang:1.27-trixie AS buildenv
 
 # Pass BUILD_VERSION through to the build stage
