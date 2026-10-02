@@ -274,13 +274,13 @@ func isProcessZombie(t *testing.T, pid int) bool {
 	}
 
 	stat := string(data)
-	lastParen := strings.LastIndex(stat, ")")
-	if lastParen == -1 {
+	_, after, ok := strings.CutLast(stat, ")")
+	if !ok {
 		t.Logf("Invalid stat format for PID %d", pid)
 		return false
 	}
 
-	fields := strings.Fields(stat[lastParen+1:])
+	fields := strings.Fields(after)
 	if len(fields) < 1 {
 		t.Logf("Invalid stat format for PID %d", pid)
 		return false
@@ -352,12 +352,12 @@ func getProcessState(t *testing.T, pid int) string {
 	}
 
 	stat := string(data)
-	lastParen := strings.LastIndex(stat, ")")
-	if lastParen == -1 {
+	_, after, ok := strings.CutLast(stat, ")")
+	if !ok {
 		return ""
 	}
 
-	fields := strings.Fields(stat[lastParen+1:])
+	fields := strings.Fields(after)
 	if len(fields) < 1 {
 		return ""
 	}

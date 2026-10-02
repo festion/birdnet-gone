@@ -19,9 +19,7 @@ func setupTestCache(t *testing.T) (*mockProviderWithAPICounter, *imageprovider.B
 	t.Helper()
 
 	mockProvider := &mockProviderWithAPICounter{
-		mockImageProvider: mockImageProvider{
-			fetchDelay: 10 * time.Millisecond,
-		},
+		fetchDelay: 10 * time.Millisecond,
 	}
 
 	mockStore := newMockStore()
@@ -40,9 +38,7 @@ func setupTestCacheWithSharedStore(t *testing.T) (*mockProviderWithAPICounter, *
 	t.Helper()
 
 	mockProvider := &mockProviderWithAPICounter{
-		mockImageProvider: mockImageProvider{
-			fetchDelay: 10 * time.Millisecond,
-		},
+		fetchDelay: 10 * time.Millisecond,
 	}
 
 	mockStore := newMockStore()
@@ -169,10 +165,8 @@ func TestBackgroundRefreshIsolation(t *testing.T) {
 	t.Parallel()
 
 	mockProvider := &mockProviderWithContextTracking{
-		mockProviderWithAPICounter: mockProviderWithAPICounter{
-			mockImageProvider: mockImageProvider{
-				fetchDelay: 50 * time.Millisecond, // Simulate slower API
-			},
+		mockImageProvider: mockImageProvider{
+			fetchDelay: 50 * time.Millisecond, // Simulate slower API
 		},
 	}
 

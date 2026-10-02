@@ -256,15 +256,19 @@ func (m *mockStore) BatchSaveDynamicThresholds(thresholds []datastore.DynamicThr
 }
 
 // BG-59: Add new dynamic threshold methods
-func (m *mockStore) DeleteAllDynamicThresholds() (int64, error)        { return 0, nil }
+func (m *mockStore) DeleteAllDynamicThresholds() (int64, error) { return 0, nil }
 func (m *mockStore) GetDynamicThresholdStats() (totalCount, activeCount, atMinimumCount int64, levelDistribution map[int]int64, err error) {
 	return 0, 0, 0, make(map[int]int64), nil
 }
-func (m *mockStore) SaveThresholdEvent(*datastore.ThresholdEvent) error                 { return nil }
-func (m *mockStore) GetThresholdEvents(string, int) ([]datastore.ThresholdEvent, error) { return nil, nil }
-func (m *mockStore) GetRecentThresholdEvents(int) ([]datastore.ThresholdEvent, error)   { return nil, nil }
-func (m *mockStore) DeleteThresholdEvents(string) error                                 { return nil }
-func (m *mockStore) DeleteAllThresholdEvents() (int64, error)                           { return 0, nil }
+func (m *mockStore) SaveThresholdEvent(*datastore.ThresholdEvent) error { return nil }
+func (m *mockStore) GetThresholdEvents(string, int) ([]datastore.ThresholdEvent, error) {
+	return nil, nil
+}
+func (m *mockStore) GetRecentThresholdEvents(int) ([]datastore.ThresholdEvent, error) {
+	return nil, nil
+}
+func (m *mockStore) DeleteThresholdEvents(string) error       { return nil }
+func (m *mockStore) DeleteAllThresholdEvents() (int64, error) { return 0, nil }
 
 // GetHourlyDistribution implements the datastore.Interface GetHourlyDistribution method
 func (m *mockStore) GetHourlyDistribution(ctx context.Context, startDate, endDate, species string) ([]datastore.HourlyDistributionData, error) {
@@ -318,9 +322,7 @@ type mockFailingStore struct {
 
 func newMockFailingStore() *mockFailingStore {
 	return &mockFailingStore{
-		mockStore: mockStore{
-			images: make(map[string]*datastore.ImageCache),
-		},
+		images: make(map[string]*datastore.ImageCache),
 	}
 }
 
@@ -909,8 +911,8 @@ func TestBackgroundRequestsRateLimited(t *testing.T) {
 
 	fetchAttempts := make(chan struct{}, 10)
 	mockProvider := &mockProviderWithContext{
-		mockImageProvider: mockImageProvider{fetchDelay: 5 * time.Millisecond},
-		fetchChannel:      fetchAttempts,
+		fetchDelay:   5 * time.Millisecond,
+		fetchChannel: fetchAttempts,
 	}
 
 	store := newMockStore()
