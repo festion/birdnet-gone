@@ -111,8 +111,7 @@ func (s *ScriptProvider) Send(ctx context.Context, n *Notification) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Determine retryability from exit code
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			_ = exitErr // caller decides retry policy; we just return the error
 		}
 		return fmt.Errorf("script '%s' failed: %w, output: %s", s.name, err, truncate(string(out), DefaultScriptOutputTruncateLength))

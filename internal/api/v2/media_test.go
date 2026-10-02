@@ -78,8 +78,7 @@ func assertHandlerError(t *testing.T, handlerErr error, expectedStatus int) {
 	if handlerErr == nil {
 		return // Handler returned nil, response written to recorder
 	}
-	var httpErr *echo.HTTPError
-	if errors.As(handlerErr, &httpErr) {
+	if httpErr, ok := errors.AsType[*echo.HTTPError](handlerErr); ok {
 		assert.Equal(t, expectedStatus, httpErr.Code)
 	}
 }
