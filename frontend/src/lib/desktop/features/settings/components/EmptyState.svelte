@@ -22,18 +22,17 @@
 -->
 <script lang="ts">
   import { cn } from '$lib/utils/cn';
-  import type { Component } from 'svelte';
   import { Lightbulb } from '@lucide/svelte';
-  import type { IconProps } from '@lucide/svelte';
+  import type { LucideIcon } from '@lucide/svelte';
 
   interface ActionConfig {
     label: string;
-    icon?: Component<IconProps>;
+    icon?: LucideIcon;
     onclick: () => void;
   }
 
   interface Props {
-    icon: Component<IconProps>;
+    icon: LucideIcon;
     title: string;
     description: string;
     hints?: string[];

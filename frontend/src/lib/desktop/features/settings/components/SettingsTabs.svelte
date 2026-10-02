@@ -24,15 +24,15 @@
 -->
 <script lang="ts">
   import { cn } from '$lib/utils/cn';
-  import type { Snippet, Component } from 'svelte';
-  import type { IconProps } from '@lucide/svelte';
+  import type { Snippet } from 'svelte';
+  import type { LucideIcon } from '@lucide/svelte';
   import { t } from '$lib/i18n';
   import SettingsPageActions from './SettingsPageActions.svelte';
 
   export interface TabDefinition {
     id: string;
     label: string;
-    icon?: Component<IconProps>;
+    icon?: LucideIcon;
     hasChanges?: boolean;
     content: Snippet;
   }
