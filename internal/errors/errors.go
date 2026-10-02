@@ -518,8 +518,7 @@ func lookupComponent(funcName string) string {
 // detectCategory automatically detects error category based on error message and component
 func detectCategory(err error, component string) ErrorCategory {
 	// First check if the error implements CategorizedError interface
-	var catErr CategorizedError
-	if stderrors.As(err, &catErr) {
+	if catErr, ok := stderrors.AsType[CategorizedError](err); ok {
 		return catErr.ErrorCategory()
 	}
 

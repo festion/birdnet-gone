@@ -188,7 +188,7 @@ func (store *MySQLStore) Optimize(ctx context.Context) error {
 		optimizeLogger.Debug("Optimizing table", logger.String("table", table))
 
 		// Run OPTIMIZE TABLE
-		if err := store.DB.Exec(fmt.Sprintf("OPTIMIZE TABLE `%s`", table)).Error; err != nil {
+		if err := store.DB.Exec(fmt.Sprintf("OPTIMIZE TABLE `%s`", table)).Error; err != nil { //nolint:gocritic // MySQL identifier quoting, not a Go quoted string; table is checked by isValidTableName above
 			// MySQL may return a note/warning for InnoDB tables, which is not an error
 			if !strings.Contains(err.Error(), "Table does not support optimize") {
 				optimizeLogger.Warn("Failed to optimize table",
@@ -201,7 +201,7 @@ func (store *MySQLStore) Optimize(ctx context.Context) error {
 		}
 
 		// Run ANALYZE TABLE to update statistics
-		if err := store.DB.Exec(fmt.Sprintf("ANALYZE TABLE `%s`", table)).Error; err != nil {
+		if err := store.DB.Exec(fmt.Sprintf("ANALYZE TABLE `%s`", table)).Error; err != nil { //nolint:gocritic // MySQL identifier quoting, not a Go quoted string; table is checked by isValidTableName above
 			optimizeLogger.Warn("Failed to analyze table",
 				logger.String("table", table),
 				logger.Error(err))
