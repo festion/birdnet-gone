@@ -12,7 +12,7 @@ on:
       - '**/*.go'
       - 'go.mod'
       - 'go.sum'
-      - '.golangci.yml'
+      - '.golangci.yaml'
       # ops #2869 - a change to THIS file must re-run THIS workflow. Without
       # it a workflow-only PR (such as the one that added the retried install
       # step below) is merged having never executed the thing it edits.
@@ -22,7 +22,7 @@ on:
       - '**/*.go'
       - 'go.mod'
       - 'go.sum'
-      - '.golangci.yml'
+      - '.golangci.yaml'
       - '.github/workflows/golangci-lint.yml'
   workflow_call:
 
