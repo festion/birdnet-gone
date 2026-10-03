@@ -135,7 +135,7 @@ tasks:
         echo "    - macOS: Homebrew must be installed first"
         echo ""
         echo "This will install:"
-        echo "  • Go 1.25.3"
+        echo "  • Go (version from go.mod)"
         echo "  • Node.js LTS"
         echo "  • Build tools (gcc, git, wget, etc.)"
         echo "  • Go dev tools (golangci-lint, air)"
@@ -197,8 +197,23 @@ tasks:
             ca-certificates
 
           # Install Go if not present or version is too old
-          REQUIRED_GO_VERSION="1.25"
-          GO_VERSION="1.25.3"
+          # Required Go version follows go.mod (single source of truth); newer minors are accepted
+          REQUIRED_GO_VERSION=$(awk '/^go /{print $2; exit}' go.mod)
+          REQUIRED_GO_MINOR=$(echo "$REQUIRED_GO_VERSION" | cut -d. -f1,2)
+          if [ -z "$REQUIRED_GO_MINOR" ]; then
+            echo "❌ Could not read the go directive from go.mod"
+            exit 1
+          fi
+          go_meets_required() {
+            cur_major=${1%%.*}; cur_rest=${1#*.}; cur_minor=${cur_rest%%[!0-9]*}
+            req_major=${REQUIRED_GO_MINOR%%.*}; req_minor=${REQUIRED_GO_MINOR#*.}
+            [ "$cur_major" -gt "$req_major" ] || { [ "$cur_major" -eq "$req_major" ] && [ "$cur_minor" -ge "$req_minor" ]; }
+          }
+          # Download version: go.mod version if it has a patch component, else <major.minor>.0
+          case "$REQUIRED_GO_VERSION" in
+            *.*.*) GO_VERSION="$REQUIRED_GO_VERSION" ;;
+            *) GO_VERSION="${REQUIRED_GO_VERSION}.0" ;;
+          esac
           INSTALL_GO=false
 
           if ! command -v go >/dev/null 2>&1; then
@@ -206,16 +221,15 @@ tasks:
             INSTALL_GO=true
           else
             CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-            CURRENT_GO_MINOR=$(echo "$CURRENT_GO_VERSION" | cut -d. -f1,2)
 
-            case "$CURRENT_GO_MINOR" in
-              ${REQUIRED_GO_VERSION}*)
+            case "$(go_meets_required "$CURRENT_GO_VERSION" && echo yes)" in
+              yes)
                 echo "✅ Go ${CURRENT_GO_VERSION} is already installed (meets requirement)"
                 ;;
               *)
-                echo "⚠️  Go ${CURRENT_GO_VERSION} found, but Go ${REQUIRED_GO_VERSION}.x required"
+                echo "⚠️  Go ${CURRENT_GO_VERSION} found, but Go ${REQUIRED_GO_MINOR} or newer required"
                 echo "   Current: ${CURRENT_GO_VERSION}"
-                echo "   Required: ${REQUIRED_GO_VERSION}.x"
+                echo "   Required: ${REQUIRED_GO_MINOR} or newer"
                 echo ""
                 printf "   Upgrade to Go ${GO_VERSION}? (y/N) "
                 read REPLY
@@ -319,7 +333,18 @@ tasks:
           brew install git wget curl
 
           # Install Go with version checking
-          REQUIRED_GO_VERSION="1.25"
+          # Required Go version follows go.mod (single source of truth); newer minors are accepted
+          REQUIRED_GO_VERSION=$(awk '/^go /{print $2; exit}' go.mod)
+          REQUIRED_GO_MINOR=$(echo "$REQUIRED_GO_VERSION" | cut -d. -f1,2)
+          if [ -z "$REQUIRED_GO_MINOR" ]; then
+            echo "❌ Could not read the go directive from go.mod"
+            exit 1
+          fi
+          go_meets_required() {
+            cur_major=${1%%.*}; cur_rest=${1#*.}; cur_minor=${cur_rest%%[!0-9]*}
+            req_major=${REQUIRED_GO_MINOR%%.*}; req_minor=${REQUIRED_GO_MINOR#*.}
+            [ "$cur_major" -gt "$req_major" ] || { [ "$cur_major" -eq "$req_major" ] && [ "$cur_minor" -ge "$req_minor" ]; }
+          }
           INSTALL_GO=false
 
           if ! command -v go >/dev/null 2>&1; then
@@ -327,18 +352,17 @@ tasks:
             INSTALL_GO=true
           else
             CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-            CURRENT_GO_MINOR=$(echo "$CURRENT_GO_VERSION" | cut -d. -f1,2)
 
-            case "$CURRENT_GO_MINOR" in
-              ${REQUIRED_GO_VERSION}*)
+            case "$(go_meets_required "$CURRENT_GO_VERSION" && echo yes)" in
+              yes)
                 echo "✅ Go ${CURRENT_GO_VERSION} is already installed (meets requirement)"
                 ;;
               *)
-                echo "⚠️  Go ${CURRENT_GO_VERSION} found, but Go ${REQUIRED_GO_VERSION}.x required"
+                echo "⚠️  Go ${CURRENT_GO_VERSION} found, but Go ${REQUIRED_GO_MINOR} or newer required"
                 echo "   Current: ${CURRENT_GO_VERSION}"
-                echo "   Required: ${REQUIRED_GO_VERSION}.x"
+                echo "   Required: ${REQUIRED_GO_MINOR} or newer"
                 echo ""
-                printf "   Upgrade to Go ${REQUIRED_GO_VERSION}? (y/N) "
+                printf "   Install the latest Go via Homebrew? (y/N) "
                 read REPLY
                 case "$REPLY" in
                   [Yy]|[Yy][Ee][Ss]) INSTALL_GO=true ;;
@@ -349,21 +373,18 @@ tasks:
           fi
 
           if [ "$INSTALL_GO" = true ]; then
-            echo "📥 Installing Go ${REQUIRED_GO_VERSION}..."
-            # Try versioned formula first, fallback to latest
-            if brew install go@1.25 2>/dev/null; then
-              echo "✅ Go 1.25.x installed via go@1.25"
-              # Link the versioned formula
-              brew link go@1.25 || true
-            else
-              echo "⚠️  go@1.25 formula not available, installing latest Go"
-              brew install go
-              INSTALLED_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+            echo "📥 Installing Go (need ${REQUIRED_GO_MINOR} or newer)..."
+            # Plain "go" formula tracks the latest stable release, which satisfies
+            # the go.mod minimum; versioned go@X.Y formulae only exist for older minors.
+            # "brew install" is a no-op when an older go is already installed, so upgrade first.
+            brew upgrade go || brew install go
+            INSTALLED_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+            if go_meets_required "$INSTALLED_VERSION"; then
               echo "✅ Go ${INSTALLED_VERSION} installed"
-              case "$INSTALLED_VERSION" in
-                ${REQUIRED_GO_VERSION}*) ;;
-                *) echo "⚠️  Installed version may not match project requirements" ;;
-              esac
+            else
+              echo "❌ Go ${INSTALLED_VERSION} found after install, but ${REQUIRED_GO_MINOR} or newer required (go.mod)"
+              echo "   Homebrew's go formula does not yet provide the required version"
+              exit 1
             fi
           fi
 
@@ -486,17 +507,27 @@ tasks:
         echo ""
 
         # Check Go with version validation
-        REQUIRED_GO_VERSION="1.25"
+        # Required Go version follows go.mod (single source of truth); newer minors are accepted
+        REQUIRED_GO_VERSION=$(awk '/^go /{print $2; exit}' go.mod)
+        REQUIRED_GO_MINOR=$(echo "$REQUIRED_GO_VERSION" | cut -d. -f1,2)
+        if [ -z "$REQUIRED_GO_MINOR" ]; then
+          echo "❌ Could not read the go directive from go.mod"
+          exit 1
+        fi
+        go_meets_required() {
+          cur_major=${1%%.*}; cur_rest=${1#*.}; cur_minor=${cur_rest%%[!0-9]*}
+          req_major=${REQUIRED_GO_MINOR%%.*}; req_minor=${REQUIRED_GO_MINOR#*.}
+          [ "$cur_major" -gt "$req_major" ] || { [ "$cur_major" -eq "$req_major" ] && [ "$cur_minor" -ge "$req_minor" ]; }
+        }
         if command -v go >/dev/null 2>&1; then
           CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-          CURRENT_GO_MINOR=$(echo "$CURRENT_GO_VERSION" | cut -d. -f1,2)
 
-          case "$CURRENT_GO_MINOR" in
-            ${REQUIRED_GO_VERSION}*)
-              echo "✅ Go: ${CURRENT_GO_VERSION} (meets ${REQUIRED_GO_VERSION}.x requirement)"
+          case "$(go_meets_required "$CURRENT_GO_VERSION" && echo yes)" in
+            yes)
+              echo "✅ Go: ${CURRENT_GO_VERSION} (meets ${REQUIRED_GO_MINOR}+ requirement)"
               ;;
             *)
-              echo "❌ Go: ${CURRENT_GO_VERSION} found, but ${REQUIRED_GO_VERSION}.x required"
+              echo "❌ Go: ${CURRENT_GO_VERSION} found, but ${REQUIRED_GO_MINOR}+ required"
               echo "   Current version does not match project requirements"
               echo "   Run 'task setup-dev' to install the correct version"
               exit 1
