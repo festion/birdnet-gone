@@ -1,1 +1,0 @@
-frontend/static/LICENSES.md

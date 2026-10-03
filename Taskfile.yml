@@ -618,6 +618,11 @@ tasks:
       - air realtime
 
   # Frontend build tasks
+  licenses:
+    desc: Generate frontend/static/LICENSES.md from the Go module graph (ops #4230)
+    cmds:
+      - bash scripts/generate-licenses.sh
+
   frontend-install:
     desc: Install frontend dependencies (from the lockfile; see ops #2793)
     dir: frontend
@@ -691,12 +696,19 @@ tasks:
     cmds:
       - task: frontend-install
       - task: frontend-typecheck
+      # ops #4230 — the licence page (static/LICENSES.md, served at
+      # /ui/assets/LICENSES.md) is generated here from the Go module graph
+      # instead of being committed by a workflow, so every bundle carries
+      # the licences of the dependencies it was built with.
+      - task: licenses
       - npm run build
     sources:
       - src/**/*
       - index.html
       - vite.config.js
       - package.json
+      - ../go.mod
+      - ../go.sum
     generates:
       - dist/**/*
 
