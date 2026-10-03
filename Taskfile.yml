@@ -376,11 +376,15 @@ tasks:
             echo "📥 Installing Go (need ${REQUIRED_GO_MINOR} or newer)..."
             # Plain "go" formula tracks the latest stable release, which satisfies
             # the go.mod minimum; versioned go@X.Y formulae only exist for older minors.
-            brew install go
+            # "brew install" is a no-op when an older go is already installed, so upgrade first.
+            brew upgrade go || brew install go
             INSTALLED_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-            echo "✅ Go ${INSTALLED_VERSION} installed"
-            if ! go_meets_required "$INSTALLED_VERSION"; then
-              echo "⚠️  Installed version may not match project requirements"
+            if go_meets_required "$INSTALLED_VERSION"; then
+              echo "✅ Go ${INSTALLED_VERSION} installed"
+            else
+              echo "❌ Go ${INSTALLED_VERSION} found after install, but ${REQUIRED_GO_MINOR} or newer required (go.mod)"
+              echo "   Homebrew's go formula does not yet provide the required version"
+              exit 1
             fi
           fi
 
