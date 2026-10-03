@@ -3,8 +3,7 @@
 # committed, diffed and shipped through PRs while being invisible to search.
 # Re-included here for rg only; nothing about git changes.
 #
-# NOT included: LICENSES.md. It is a SYMLINK to frontend/static/LICENSES.md,
-# which rg already lists, so its content is searchable via the real path and a
-# negation here would be a no-op. rg does not follow symlinks without
-# --follow, and that is correct rather than a defect.
+# NOT included: frontend/static/LICENSES.md. It is generated at build time by
+# scripts/generate-licenses.sh and is untracked, so it does not belong in this
+# list of tracked-but-gitignored paths (ops #4230).
 !docs/plans/
