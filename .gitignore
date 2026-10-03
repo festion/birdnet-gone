@@ -56,3 +56,6 @@ __pycache__/
 
 # ESP32 keepalive credentials
 firmware/esp32-keepalive/src/config.h
+
+# Generated at build time by scripts/generate-licenses.sh (ops #4230)
+frontend/static/LICENSES.md
