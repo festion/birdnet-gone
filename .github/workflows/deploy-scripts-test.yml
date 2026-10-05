@@ -12,11 +12,13 @@ on:
     branches: [main]
     paths:
       - 'deploy/**'
+      - 'scripts/**'
       - '.github/workflows/deploy-birdnet-pi5.yml'
       - '.github/workflows/deploy-scripts-test.yml'
   pull_request:
     paths:
       - 'deploy/**'
+      - 'scripts/**'
       - '.github/workflows/deploy-birdnet-pi5.yml'
       - '.github/workflows/deploy-scripts-test.yml'
   workflow_dispatch:
@@ -33,11 +35,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # scripts/** is in the path filter because test_pushover_argv.sh scans and
+      # stub-runs scripts/*.sh (ops #4348). scripts/ is deliberately NOT
+      # shellchecked here: birdnet-health-check.sh and birdnet-recovery.sh carry
+      # pre-existing SC2010/SC2309 warnings at -S warning, unrelated to #4348.
       - name: Lint deploy scripts
         run: |
           shellcheck --version
           shellcheck -S warning deploy/pushover_notify.sh \
-                                deploy/tests/test_pushover_notify.sh
+                                deploy/tests/test_pushover_notify.sh \
+                                deploy/tests/test_pushover_argv.sh
 
       # The suite drives a real curl against a local stub HTTP server rather
       # than stubbing the call out, so the HTTP path itself is exercised. It
@@ -47,3 +54,8 @@ jobs:
       # matcher cannot report a clean result.
       - name: Run pushover_notify tests
         run: bash deploy/tests/test_pushover_notify.sh
+
+      # Credentials must never ride in curl's argv (ops #4348): repo-wide scan of
+      # shipped shell files plus each sender run against a stub curl.
+      - name: Run pushover argv tests
+        run: bash deploy/tests/test_pushover_argv.sh

@@ -50,6 +50,17 @@
 #             GITHUB_STEP_SUMMARY is honoured if set (Actions sets it).
 set -u
 
+# Escape a value for a curl -K config line (inside double quotes). Credentials
+# go to curl on stdin via -K /dev/stdin, never in argv, where any local user can
+# read them from ps or /proc/<pid>/cmdline (ops #4348).
+cfg_escape() {
+  local s=${1//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\n'/\\n}
+  printf '%s' "$s"
+}
+
 MODE="${1:-preflight}"
 VALIDATE_URL="${PUSHOVER_VALIDATE_URL:-https://api.pushover.net/1/users/validate.json}"
 MESSAGES_URL="${PUSHOVER_API_URL:-https://api.pushover.net/1/messages.json}"
@@ -97,10 +108,11 @@ case "$MODE" in
     # this repo's PUSHOVER_API_TOKEN predates that rename — its value has never
     # been validated from a run. users/validate.json checks token+user without
     # sending a notification.
-    body="$(curl -sS --max-time 10 \
-              --form-string "token=${TOKEN}" \
-              --form-string "user=${USER_KEY}" \
-              "$VALIDATE_URL" 2>/dev/null)" || body=""
+    body="$(curl -sS --max-time 10 "$VALIDATE_URL" -K /dev/stdin 2>/dev/null <<CFG
+--form-string "token=$(cfg_escape "$TOKEN")"
+--form-string "user=$(cfg_escape "$USER_KEY")"
+CFG
+)" || body=""
     # Whitespace-tolerant: JSON permits spaces after the colon, and matching the
     # compact form only would silently report a VALID credential as rejected.
     if printf '%s' "$body" | grep -qE '"status":[[:space:]]*1'; then
@@ -129,13 +141,14 @@ case "$MODE" in
     # No `|| true`, and `-f` so an HTTP 4xx is an error rather than a body we
     # discard. If the alarm cannot fire, that must be visible as a failed step;
     # swallowing it is the whole of ops #2480.
-    if curl -fsS --max-time 10 \
-         --form-string "token=${TOKEN}" \
-         --form-string "user=${USER_KEY}" \
-         --form-string "priority=1" \
-         --form-string "title=BirdNET-Go deploy FAILED" \
-         --form-string "message=Version ${VERSION} failed to deploy to ${PI_HOST}. See ${RUN_URL}" \
-         "$MESSAGES_URL" -o /dev/null; then
+    if curl -fsS --max-time 10 "$MESSAGES_URL" -o /dev/null -K /dev/stdin <<CFG
+--form-string "token=$(cfg_escape "$TOKEN")"
+--form-string "user=$(cfg_escape "$USER_KEY")"
+--form-string "priority=1"
+--form-string "title=BirdNET-Go deploy FAILED"
+--form-string "message=$(cfg_escape "Version ${VERSION} failed to deploy to ${PI_HOST}. See ${RUN_URL}")"
+CFG
+    then
       log "failure alert sent (token from ${TOKEN_SRC})"
       exit 0
     fi
@@ -150,13 +163,14 @@ case "$MODE" in
       summary "⚠️ **Deploy succeeded; the Pushover notice was not sent** — $missing missing."
       exit 0
     fi
-    if curl -fsS --max-time 10 \
-         --form-string "token=${TOKEN}" \
-         --form-string "user=${USER_KEY}" \
-         --form-string "priority=-1" \
-         --form-string "title=BirdNET-Go deployed to Pi 5" \
-         --form-string "message=Version ${VERSION} is live on ${PI_HOST}." \
-         "$MESSAGES_URL" -o /dev/null; then
+    if curl -fsS --max-time 10 "$MESSAGES_URL" -o /dev/null -K /dev/stdin <<CFG
+--form-string "token=$(cfg_escape "$TOKEN")"
+--form-string "user=$(cfg_escape "$USER_KEY")"
+--form-string "priority=-1"
+--form-string "title=BirdNET-Go deployed to Pi 5"
+--form-string "message=$(cfg_escape "Version ${VERSION} is live on ${PI_HOST}.")"
+CFG
+    then
       log "success notice sent (token from ${TOKEN_SRC})"
       exit 0
     fi

@@ -355,6 +355,17 @@ attempt_soft_recovery() {
 # PUSHOVER ALERTING
 # ============================================================================
 
+# Escape a value for a curl -K config line (inside double quotes). Credentials
+# go to curl on stdin via -K /dev/stdin, never in argv, where any local user can
+# read them from ps or /proc/<pid>/cmdline (ops #4348).
+cfg_escape() {
+  local s=${1//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\n'/\\n}
+  printf '%s' "$s"
+}
+
 send_pushover_alert() {
     local message="$1"
 
@@ -365,12 +376,14 @@ send_pushover_alert() {
 
     local response
     response=$(curl -s -o /dev/null -w "%{http_code}" \
-        --form-string "token=$PUSHOVER_API_TOKEN" \
-        --form-string "user=$PUSHOVER_USER_KEY" \
-        --form-string "title=BirdNET BOYA Hard Desync" \
-        --form-string "message=$message" \
-        --form-string "priority=0" \
-        https://api.pushover.net/1/messages.json 2>/dev/null) || {
+        https://api.pushover.net/1/messages.json -K /dev/stdin 2>/dev/null <<CFG
+--form-string "token=$(cfg_escape "$PUSHOVER_API_TOKEN")"
+--form-string "user=$(cfg_escape "$PUSHOVER_USER_KEY")"
+--form-string "title=BirdNET BOYA Hard Desync"
+--form-string "message=$(cfg_escape "$message")"
+--form-string "priority=0"
+CFG
+    ) || {
         log "WARNING: Pushover request failed"
         return 1
     }
