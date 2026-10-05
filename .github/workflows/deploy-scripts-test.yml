@@ -35,6 +35,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # scripts/** is in the path filter because test_pushover_argv.sh scans and
+      # stub-runs scripts/*.sh (ops #4348). scripts/ is deliberately NOT
+      # shellchecked here: birdnet-health-check.sh and birdnet-recovery.sh carry
+      # pre-existing SC2010/SC2309 warnings at -S warning, unrelated to #4348.
       - name: Lint deploy scripts
         run: |
           shellcheck --version
