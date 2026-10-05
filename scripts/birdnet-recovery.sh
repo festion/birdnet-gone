@@ -6,6 +6,17 @@
 
 set -euo pipefail
 
+# Escape a value for a curl -K config line (inside double quotes). Credentials
+# go to curl on stdin via -K /dev/stdin, never in argv, where any local user can
+# read them from ps or /proc/<pid>/cmdline (ops #4348).
+cfg_escape() {
+  local s=${1//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\n'/\\n}
+  printf '%s' "$s"
+}
+
 LOG="/var/log/birdnet-recovery.log"
 COOLDOWN_FILE="/tmp/birdnet-recovery-cooldown"
 COOLDOWN_SECONDS=7200
@@ -74,9 +85,14 @@ if [[ "$status" != "healthy" ]]; then
     date +%s > "$COOLDOWN_FILE"
     # Send Pushover alert
     if [[ -n "${PUSHOVER_USER_KEY:-}" && -n "${PUSHOVER_API_TOKEN:-}" ]]; then
-        curl -sf -X POST https://api.pushover.net/1/messages.json \
-            -d "token=$PUSHOVER_API_TOKEN&user=$PUSHOVER_USER_KEY&title=BirdNET Hard Desync&message=BOYA mic unrecoverable. Needs physical re-pair.&priority=1" \
-            > /dev/null 2>&1 || true
+        curl -sf -X POST https://api.pushover.net/1/messages.json -K /dev/stdin \
+            > /dev/null 2>&1 <<CFG || true
+--form-string "token=$(cfg_escape "$PUSHOVER_API_TOKEN")"
+--form-string "user=$(cfg_escape "$PUSHOVER_USER_KEY")"
+--form-string "title=BirdNET Hard Desync"
+--form-string "message=BOYA mic unrecoverable. Needs physical re-pair."
+--form-string "priority=1"
+CFG
     fi
 else
     log "INFO: Recovery successful"
