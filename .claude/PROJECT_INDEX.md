@@ -1,61 +1,63 @@
 # Project Index: birdnet-gone
-
 ## 1. Core Purpose
-The `birdnet-gone` project appears to be a comprehensive application focused on bird sound detection and analysis, likely leveraging the BirdNET model. Its core purpose involves:
-*   **Audio Analysis:** Processing audio to identify bird species.
-*   **Data Management:** Storing and managing analysis results and related data (e.g., eBird integration).
-*   **User Interface:** Providing a web-based frontend for interacting with the analysis results.
-*   **Deployment Versatility:** Supporting deployment across various environments, including Docker, Podman, and potentially embedded systems (firmware) or virtual machines.
-*   **Monitoring and Notifications:** Offering features for system monitoring, telemetry, and various notification mechanisms.
+BirdNET-Gone is a Go implementation of BirdNET for real-time AI-powered continuous bird sound identification, primarily aimed at non-serious birders and home users. It offers 24/7 analysis, local processing, a web UI, and supports advanced features like Deep Detection and Live Audio Streaming.
 
 ## 2. Architecture
-The codebase exhibits a modular, multi-component architecture, primarily written in Go for the backend and Svelte/JavaScript for the frontend.
-
-*   **Go Backend:**
-    *   **`cmd/`**: Contains the entry points for various commands and services.
-    *   **`internal/`**: Houses the core business logic, including:
-        *   `analysis`: For processing audio data and running detection models.
-        *   `api`: Defines the RESTful API endpoints, likely including `v2`.
-        *   `birdnet`: Specific integration and logic related to the BirdNET model.
-        *   `conf`: Configuration management.
-        *   `datastore`: Data persistence logic.
-        *   `events`: Eventing system for inter-component communication.
-        *   `logger`: Centralized logging.
-        *   `mqtt`: MQTT integration for messaging.
-        *   `notification`: Handles various notification types (e.g., webhooks, push).
-        *   `observability`/`telemetry`: For metrics, tracing, and health checks.
-        *   `security`: Authentication and authorization.
-    *   **`main.go`**: The primary application entry point.
-*   **Frontend (`frontend/`)**: A Svelte-based web application providing the user interface, built with Vite.
-*   **Containerization**: `Docker/` and `Podman/` directories indicate support for containerized deployment using `docker-compose` or `podman-compose`.
-*   **Firmware (`firmware/`)**: Suggests integration with embedded devices, specifically ESP32.
-*   **VM Images (`vm-images/`)**: Tools and configurations for building virtual machine images.
-*   **Utilities (`scripts/`)**: Various shell and Python scripts for debugging, health checks, and system management.
-*   **Documentation (`doc/`, `docs/`)**: Extensive documentation covering architecture, profiling, and specific component details.
+The project follows a modular structure:
+*   `/cmd/`: Contains Viper CLI commands for various functionalities.
+*   `/internal/`: Houses private Go packages, adhering to Go standards, and includes core logic, API v2 definitions, and internal services.
+*   `/frontend/`: Implements the Svelte 5 user interface with TypeScript.
+*   `/Docker/` and `docker-compose.yml`: Define the Docker-based deployment environment.
 
 ## 3. Key Files
-
-*   `main.go`: Main application entry point for the Go backend.
-*   `ARCHITECTURE.md`: High-level architectural overview of the project.
-*   `go.mod`, `go.sum`: Go module dependency management.
-*   `Dockerfile`: Defines the Docker image for the application.
-*   `docker-compose.yml`, `Podman/podman-compose.yml`: Container orchestration definitions.
-*   `frontend/package.json`, `frontend/package-lock.json`: Frontend (Node.js/Svelte) dependency management.
-*   `frontend/src/`: Source code for the Svelte frontend application.
-*   `internal/api/README.md`: Documentation for the backend API.
-*   `internal/analysis/`: Contains logic for audio analysis.
-*   `internal/birdnet/`: Contains logic specific to BirdNET integration.
-*   `internal/conf/config.yaml`: Main configuration file.
-*   `internal/logger/docs/LOGGER_DOCUMENTATION_INDEX.md`: Entry point for logging documentation.
-*   `internal/security/README.md`: Documentation for security aspects.
-*   `internal/telemetry/README.md`: Documentation for telemetry and observability.
-*   `vicohome-bridge/vicohome_bridge.py`, `vicohome-bridge/requirements.txt`: Python script and dependencies for VicoHome integration.
-*   `watchdog/watchdog.py`: Python watchdog script.
+*   **Documentation & Guidelines**:
+    *   `ARCHITECTURE.md`: High-level architectural overview.
+    *   `CHANGELOG.md`: Project change history.
+    *   `CONTRIBUTING.md`: Guidelines for contributors.
+    *   `CLAUDE.md`: General development guidelines for AI assistants.
+    *   `README.md`: Project overview, installation, and development setup.
+    *   `TESTING.md`: Test patterns, `testify` usage, and shared helpers for Go tests.
+    *   `doc/wiki/guide.md`: User guide with advanced features like Deep Detection.
+    *   `doc/DEBUG-COLLECTION.md`, `doc/PROFILING.md`: Debugging and profiling documentation.
+    *   `frontend/CLAUDE.md`: Frontend-specific development guidelines for AI assistants.
+*   **Configuration**:
+    *   `.air.toml`: Configuration for Air (live-reloading development server for Go).
+    *   `cliff.toml`: Configuration for `git-cliff` (changelog generator).
+    *   `go.mod`, `go.sum`: Go module dependency definitions.
+    *   `Taskfile.yml`: Task runner configurations.
+    *   `docker-compose.yml`, `Docker/docker-compose.yml`, `Docker/docker-compose.autotls.yml`: Docker Compose configurations for deployment.
+    *   `frontend/package.json`: Frontend (npm/yarn) dependency and script definitions.
+    *   `frontend/eslint.config.js`, `frontend/tsconfig.json`: Frontend linting and TypeScript configurations.
+*   **Source Code & Entry Points**:
+    *   `main.go`: Main entry point for the Go application.
+    *   `frontend/embed.go`: Embeds frontend assets into the Go binary.
+*   **Scripts**:
+    *   `install.sh`: Quick installation script.
+    *   `scripts/birdnet-health-check.sh`: Health check script.
+    *   `Docker/entrypoint.sh`, `Docker/startup-wrapper.sh`: Docker container entrypoint and startup scripts.
+    *   `examples/secure-mqtt-test.sh`: Example MQTT testing script.
 
 ## 4. Dependencies
-*   **Go Modules**: Managed by `go.mod` and `go.sum`.
-*   **Node.js/NPM**: For the frontend, specified in `frontend/package.json` (Svelte, Vite, Playwright, Vitest).
-*   **Python**: Used for scripts (e.g., `scripts/analyze-debug-data.py`, `vicohome-bridge/vicohome_bridge.py`, `watchdog/watchdog.py`) with dependencies potentially listed in `vicohome-bridge/requirements.txt`.
-*   **Docker/Podman**: For containerization and deployment.
-*   **Systemd**: For service management, as indicated by `scripts/systemd/` and recovery service files.
-*   **eBird API**: For taxonomy and observation data, as indicated by `internal/ebird/`.
+*   **Go**: Managed via `go.mod`.
+*   **Frontend**: Svelte 5, TypeScript, and other UI-related libraries managed via `frontend/package.json` (npm/yarn).
+*   **Containerization**: Docker and Docker Compose for deployment.
+*   **Development Tools**:
+    *   `task`: For running various project tasks (build, dev server, clean, lint).
+    *   `ast-grep`: For syntax-aware code search and refactoring.
+    *   `testify`: For Go testing frameworks.
+
+## 5. Common Tasks
+*   **Linting**:
+    *   Go: `task lint`
+    *   Frontend: `npm run check:all`
+*   **Testing**:
+    *   Go: `go test -race -v`
+    *   Frontend: `npm test`
+*   **Building**:
+    *   Default build: `task`
+    *   Frontend only: `task frontend-build`
+    *   Cross-platform (e.g., Linux AMD64): `task linux_amd64`
+*   **Development Server**: `task dev_server` (with hot reload).
+*   **Cleaning**: `task clean` to remove build artifacts.
+*   **Code Search & Refactoring**: Utilize `ast-grep` for syntax-aware operations.
+*   **PR Review**: Request automated reviews with `gh pr comment <PR_NUMBER> --body "/gemini review"`.
