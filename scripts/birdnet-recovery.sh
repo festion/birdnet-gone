@@ -85,12 +85,20 @@ if [[ "$status" != "healthy" ]]; then
     date +%s > "$COOLDOWN_FILE"
     # Send Pushover alert
     if [[ -n "${PUSHOVER_USER_KEY:-}" && -n "${PUSHOVER_API_TOKEN:-}" ]]; then
+        message="BOYA mic unrecoverable. Needs physical re-pair."
+        # ops #4372 — Pushover rejects a message over 1024 characters (the page is lost).
+        # Cap the RAW text before escaping; count characters, not bytes; never fail.
+        message=$(exec 2>/dev/null; LC_ALL=C.UTF-8
+          m=$message s='… (truncated)'
+          [ "${#m}" -gt 1024 ] && m="${m:0:$((1024 - ${#s}))}$s"
+          printf '%sx' "$m")
+        message=${message%x}
         curl -sf -X POST https://api.pushover.net/1/messages.json -K /dev/stdin \
             > /dev/null 2>&1 <<CFG || true
 --form-string "token=$(cfg_escape "$PUSHOVER_API_TOKEN")"
 --form-string "user=$(cfg_escape "$PUSHOVER_USER_KEY")"
 --form-string "title=BirdNET Hard Desync"
---form-string "message=BOYA mic unrecoverable. Needs physical re-pair."
+--form-string "message=$(cfg_escape "$message")"
 --form-string "priority=1"
 CFG
     fi

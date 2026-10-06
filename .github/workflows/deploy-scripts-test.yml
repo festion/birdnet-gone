@@ -44,7 +44,8 @@ jobs:
           shellcheck --version
           shellcheck -S warning deploy/pushover_notify.sh \
                                 deploy/tests/test_pushover_notify.sh \
-                                deploy/tests/test_pushover_argv.sh
+                                deploy/tests/test_pushover_argv.sh \
+                                deploy/tests/test_pushover_cap.sh
 
       # The suite drives a real curl against a local stub HTTP server rather
       # than stubbing the call out, so the HTTP path itself is exercised. It
@@ -59,3 +60,8 @@ jobs:
       # shipped shell files plus each sender run against a stub curl.
       - name: Run pushover argv tests
         run: bash deploy/tests/test_pushover_argv.sh
+
+      # Every Pushover sender caps its message at 1024 characters (ops #4372):
+      # enumerated from the tracked files, then driven with a 3000-char message.
+      - name: Run pushover cap tests
+        run: bash deploy/tests/test_pushover_cap.sh
