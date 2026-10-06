@@ -138,6 +138,14 @@ CFG
       summary "🚨 **Deploy failed AND the alert could not be sent** — Pushover $missing missing."
       exit 1
     fi
+    message="Version ${VERSION} failed to deploy to ${PI_HOST}. See ${RUN_URL}"
+    # ops #4372 — Pushover rejects a message over 1024 characters (the page is lost).
+    # Cap the RAW text before escaping; count characters, not bytes; never fail.
+    message=$(exec 2>/dev/null; LC_ALL=C.UTF-8
+      m=$message s='… (truncated)'
+      [ "${#m}" -gt 1024 ] && m="${m:0:$((1024 - ${#s}))}$s"
+      printf '%sx' "$m")
+    message=${message%x}
     # No `|| true`, and `-f` so an HTTP 4xx is an error rather than a body we
     # discard. If the alarm cannot fire, that must be visible as a failed step;
     # swallowing it is the whole of ops #2480.
@@ -146,7 +154,7 @@ CFG
 --form-string "user=$(cfg_escape "$USER_KEY")"
 --form-string "priority=1"
 --form-string "title=BirdNET-Go deploy FAILED"
---form-string "message=$(cfg_escape "Version ${VERSION} failed to deploy to ${PI_HOST}. See ${RUN_URL}")"
+--form-string "message=$(cfg_escape "$message")"
 CFG
     then
       log "failure alert sent (token from ${TOKEN_SRC})"
@@ -163,12 +171,20 @@ CFG
       summary "⚠️ **Deploy succeeded; the Pushover notice was not sent** — $missing missing."
       exit 0
     fi
+    message="Version ${VERSION} is live on ${PI_HOST}."
+    # ops #4372 — Pushover rejects a message over 1024 characters (the page is lost).
+    # Cap the RAW text before escaping; count characters, not bytes; never fail.
+    message=$(exec 2>/dev/null; LC_ALL=C.UTF-8
+      m=$message s='… (truncated)'
+      [ "${#m}" -gt 1024 ] && m="${m:0:$((1024 - ${#s}))}$s"
+      printf '%sx' "$m")
+    message=${message%x}
     if curl -fsS --max-time 10 "$MESSAGES_URL" -o /dev/null -K /dev/stdin <<CFG
 --form-string "token=$(cfg_escape "$TOKEN")"
 --form-string "user=$(cfg_escape "$USER_KEY")"
 --form-string "priority=-1"
 --form-string "title=BirdNET-Go deployed to Pi 5"
---form-string "message=$(cfg_escape "Version ${VERSION} is live on ${PI_HOST}.")"
+--form-string "message=$(cfg_escape "$message")"
 CFG
     then
       log "success notice sent (token from ${TOKEN_SRC})"

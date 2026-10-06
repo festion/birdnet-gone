@@ -159,7 +159,7 @@ check_wire "health-check (rc 7)"
 # ---- scripts/birdnet-recovery.sh: the send block (dead code, fixed anyway)
 RC="$ROOT/scripts/birdnet-recovery.sh"
 { extract_fn "$RC" cfg_escape
-  awk '/curl -sf -X POST https:\/\/api\.pushover\.net/{p=1} p{print} p&&/^CFG$/{exit}' "$RC"; } > "$TMP/rec_blk.sh"
+  awk '/^ *message="BOYA/{p=1} p{print} p&&/^CFG$/{exit}' "$RC"; } > "$TMP/rec_blk.sh"
 if grep -q '^CFG$' "$TMP/rec_blk.sh" && grep -q 'curl -sf -X POST' "$TMP/rec_blk.sh"; then ok "recovery: extracted send block"; else bad "recovery: block extraction failed"; fi
 for rc_stub in 0 22; do
   reset_stub

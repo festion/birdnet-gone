@@ -374,6 +374,14 @@ send_pushover_alert() {
         return 1
     fi
 
+    # ops #4372 — Pushover rejects a message over 1024 characters (the page is lost).
+    # Cap the RAW text before escaping; count characters, not bytes; never fail.
+    message=$(exec 2>/dev/null; LC_ALL=C.UTF-8
+      m=$message s='… (truncated)'
+      [ "${#m}" -gt 1024 ] && m="${m:0:$((1024 - ${#s}))}$s"
+      printf '%sx' "$m")
+    message=${message%x}
+
     local response
     response=$(curl -s -o /dev/null -w "%{http_code}" \
         https://api.pushover.net/1/messages.json -K /dev/stdin 2>/dev/null <<CFG
