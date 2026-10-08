@@ -1,63 +1,178 @@
 # Project Index: birdnet-gone
+
 ## 1. Core Purpose
-BirdNET-Gone is a Go implementation of BirdNET for real-time AI-powered continuous bird sound identification, primarily aimed at non-serious birders and home users. It offers 24/7 analysis, local processing, a web UI, and supports advanced features like Deep Detection and Live Audio Streaming.
+
+BirdNET-Gone is a fork of BirdNET-Go, providing an AI-powered solution for continuous avian monitoring and identification. It's a Go implementation of BirdNET, designed for real-time bird sound identification, primarily for non-serious birders and home users. The project emphasizes local processing, a web UI, and supports various deployment methods.
 
 ## 2. Architecture
-The project follows a modular structure:
-*   `/cmd/`: Contains Viper CLI commands for various functionalities.
-*   `/internal/`: Houses private Go packages, adhering to Go standards, and includes core logic, API v2 definitions, and internal services.
-*   `/frontend/`: Implements the Svelte 5 user interface with TypeScript.
-*   `/Docker/` and `docker-compose.yml`: Define the Docker-based deployment environment.
+
+The codebase follows a clear separation of concerns:
+
+*   **Backend (Go):** Primarily located in the `/internal/` directory for private packages and `/cmd/` for CLI commands using Viper.
+*   **Frontend (Svelte 5):** Resides in the `/frontend/` directory, built with Svelte 5 and TypeScript.
+*   **API:** New endpoints are added to `internal/api/v2/`. API v1 is not to be expanded.
+*   **Deployment:** Utilizes Docker and Podman, with `docker-compose.yml` and `Podman/podman-compose.yml` for orchestration.
+*   **Testing:** Uses standard Go testing (`go test`) and `testify`, with `TESTING.md` providing guidelines.
 
 ## 3. Key Files
-*   **Documentation & Guidelines**:
-    *   `ARCHITECTURE.md`: High-level architectural overview.
-    *   `CHANGELOG.md`: Project change history.
-    *   `CONTRIBUTING.md`: Guidelines for contributors.
-    *   `CLAUDE.md`: General development guidelines for AI assistants.
-    *   `README.md`: Project overview, installation, and development setup.
-    *   `TESTING.md`: Test patterns, `testify` usage, and shared helpers for Go tests.
-    *   `doc/wiki/guide.md`: User guide with advanced features like Deep Detection.
-    *   `doc/DEBUG-COLLECTION.md`, `doc/PROFILING.md`: Debugging and profiling documentation.
-    *   `frontend/CLAUDE.md`: Frontend-specific development guidelines for AI assistants.
-*   **Configuration**:
-    *   `.air.toml`: Configuration for Air (live-reloading development server for Go).
-    *   `cliff.toml`: Configuration for `git-cliff` (changelog generator).
-    *   `go.mod`, `go.sum`: Go module dependency definitions.
-    *   `Taskfile.yml`: Task runner configurations.
-    *   `docker-compose.yml`, `Docker/docker-compose.yml`, `Docker/docker-compose.autotls.yml`: Docker Compose configurations for deployment.
-    *   `frontend/package.json`: Frontend (npm/yarn) dependency and script definitions.
-    *   `frontend/eslint.config.js`, `frontend/tsconfig.json`: Frontend linting and TypeScript configurations.
-*   **Source Code & Entry Points**:
-    *   `main.go`: Main entry point for the Go application.
-    *   `frontend/embed.go`: Embeds frontend assets into the Go binary.
-*   **Scripts**:
-    *   `install.sh`: Quick installation script.
-    *   `scripts/birdnet-health-check.sh`: Health check script.
-    *   `Docker/entrypoint.sh`, `Docker/startup-wrapper.sh`: Docker container entrypoint and startup scripts.
-    *   `examples/secure-mqtt-test.sh`: Example MQTT testing script.
+
+*   **Project Overview & Guidelines:**
+    *   `README.md`: Main project overview and installation instructions.
+    *   `CLAUDE.md`: General AI development guidelines for the project.
+    *   `frontend/CLAUDE.md`: Frontend-specific development guidelines.
+    *   `internal/CLAUDE.md`: Backend (Go) specific development guidelines.
+    *   `internal/api/v2/CLAUDE.md`: API v2 specific development guidelines.
+    *   `ARCHITECTURE.md`: High-level architectural documentation.
+    *   `CONTRIBUTING.md`: Contribution instructions.
+    *   `CHANGELOG.md`: Project change log.
+    *   `TESTING.md`: Testing patterns and usage of `testify`.
+*   **Configuration & Build:**
+    *   `go.mod`, `go.sum`: Go module dependencies.
+    *   `frontend/package.json`, `frontend/package-lock.json`: Frontend dependencies and scripts.
+    *   `Taskfile.yml`: Task runner configuration for various builds and operations.
+    *   `.golangci.yaml`: Go linter configuration.
+    *   `frontend/.ast-grep.yml`, `frontend/doc/AST-GREP-SETUP.md`: `ast-grep` configuration and setup for frontend.
+    *   `cliff.toml`: CLI configuration.
+    *   `.air.toml`: Configuration for `air` (Go live-reloading).
+*   **Source Code Entry Points:**
+    *   `main.go`: Main application entry point.
+    *   `cmd/root.go`: Main Cobra CLI command definition.
+*   **Deployment & Environment:**
+    *   `Dockerfile`: Docker image definition.
+    *   `docker-compose.yml`, `Docker/docker-compose.yml`, `Podman/podman-compose.yml`: Docker and Podman compose files.
+    *   `Docker/ENVIRONMENT_VARIABLES.md`: Documentation for Docker environment variables.
+    *   `.devcontainer/devcontainer.json`: Development container setup.
+*   **Documentation & Wiki:**
+    *   `doc/wiki/*.md`: Various wiki articles (e.g., `installation.md`, `docker_compose_guide.md`).
+    *   `doc/*.md`: Other general documentation (e.g., `BUFFER_ALLOCATION_MONITORING.md`).
+*   **Data:**
+    *   `data/latest.json`: Contains latest data, likely taxonomy or model related.
 
 ## 4. Dependencies
-*   **Go**: Managed via `go.mod`.
-*   **Frontend**: Svelte 5, TypeScript, and other UI-related libraries managed via `frontend/package.json` (npm/yarn).
-*   **Containerization**: Docker and Docker Compose for deployment.
-*   **Development Tools**:
-    *   `task`: For running various project tasks (build, dev server, clean, lint).
-    *   `ast-grep`: For syntax-aware code search and refactoring.
-    *   `testify`: For Go testing frameworks.
+
+*   **Go:** Managed by `go.mod` and `go.sum`. Key internal packages in `/internal/`.
+*   **Svelte 5:** Frontend framework, with dependencies managed by `frontend/package.json`.
+*   **Viper:** Used for CLI commands in `/cmd/`.
+*   **Testify:** Go testing framework used in conjunction with standard `go test`.
+*   **Docker/Podman:** For containerized deployment and development.
+*   **Task:** A task runner for automating build, linting, and testing processes.
+*   **ast-grep:** A structural code search and refactoring tool.
 
 ## 5. Common Tasks
-*   **Linting**:
+
+*   **Linting:**
     *   Go: `task lint`
-    *   Frontend: `npm run check:all`
-*   **Testing**:
-    *   Go: `go test -race -v`
-    *   Frontend: `npm test`
-*   **Building**:
-    *   Default build: `task`
-    *   Frontend only: `task frontend-build`
-    *   Cross-platform (e.g., Linux AMD64): `task linux_amd64`
-*   **Development Server**: `task dev_server` (with hot reload).
-*   **Cleaning**: `task clean` to remove build artifacts.
-*   **Code Search & Refactoring**: Utilize `ast-grep` for syntax-aware operations.
-*   **PR Review**: Request automated reviews with `gh pr comment <PR_NUMBER> --body "/gemini review"`.
+    *   Frontend: `npm run check:all` (run from `frontend/` directory)
+*   **Testing:**
+    *   Go: `go test -race -v ./...` (from root directory)
+    *   Frontend: `npm test` (run from `frontend/` directory)
+*   **Development Server:**
+    *   `task dev_server` (for hot reload)
+*   **Building:**
+    *   `task` (default build, auto-detects target)
+    *   `task frontend-build` (frontend only)
+    *   `task linux_amd64` (cross-platform builds)
+*   **Cleaning Artifacts:**
+    *   `task clean`
+*   **Code Search & Refactoring (using ast-grep):**
+    *   Search: `ast-grep --pattern "async function $NAME($$$) { $$$ }" src/`
+    *   Refactor: `ast-grep --pattern "let $VAR = $VALUE" --rewrite "const $VAR = $VALUE" src/`
+*   **Git Workflow:**
+    *   Branching: `git pull origin main && git checkout -b feature-name`
+    *   Request automated PR review: `gh pr comment <PR_NUMBER> --body "/gemini review"`
+*   **Updating Taxonomy:**
+    *   `scripts/update_taxonomy.go` (requires Go execution)
+*   **Collecting Debug Data:**
+    *   `scripts/collect-debug-data.sh`
+    *   `scripts/collect-debug-data-docker.sh`
+*   **Pushover Notifications:**
+    *   `deploy/pushover_notify.sh`
+# Project Index: birdnet-gone
+
+## 1. Core Purpose
+
+BirdNET-Gone is a fork of BirdNET-Go, providing an AI-powered solution for continuous avian monitoring and identification. It's a Go implementation of BirdNET, designed for real-time bird sound identification, primarily for non-serious birders and home users. The project emphasizes local processing, a web UI, and supports various deployment methods.
+
+## 2. Architecture
+
+The codebase follows a clear separation of concerns:
+
+*   **Backend (Go):** Primarily located in the `/internal/` directory for private packages and `/cmd/` for CLI commands using Viper.
+*   **Frontend (Svelte 5):** Resides in the `/frontend/` directory, built with Svelte 5 and TypeScript.
+*   **API:** New endpoints are added to `internal/api/v2/`. API v1 is not to be expanded.
+*   **Deployment:** Utilizes Docker and Podman, with `docker-compose.yml` and `Podman/podman-compose.yml` for orchestration.
+*   **Testing:** Uses standard Go testing (`go test`) and `testify`, with `TESTING.md` providing guidelines.
+
+## 3. Key Files
+
+*   **Project Overview & Guidelines:**
+    *   `README.md`: Main project overview and installation instructions.
+    *   `CLAUDE.md`: General AI development guidelines for the project.
+    *   `frontend/CLAUDE.md`: Frontend-specific development guidelines.
+    *   `internal/CLAUDE.md`: Backend (Go) specific development guidelines.
+    *   `internal/api/v2/CLAUDE.md`: API v2 specific development guidelines.
+    *   `ARCHITECTURE.md`: High-level architectural documentation.
+    *   `CONTRIBUTING.md`: Contribution instructions.
+    *   `CHANGELOG.md`: Project change log.
+    *   `TESTING.md`: Testing patterns and usage of `testify`.
+*   **Configuration & Build:**
+    *   `go.mod`, `go.sum`: Go module dependencies.
+    *   `frontend/package.json`, `frontend/package-lock.json`: Frontend dependencies and scripts.
+    *   `Taskfile.yml`: Task runner configuration for various builds and operations.
+    *   `.golangci.yaml`: Go linter configuration.
+    *   `frontend/.ast-grep.yml`, `frontend/doc/AST-GREP-SETUP.md`: `ast-grep` configuration and setup for frontend.
+    *   `cliff.toml`: CLI configuration.
+    *   `.air.toml`: Configuration for `air` (Go live-reloading).
+*   **Source Code Entry Points:**
+    *   `main.go`: Main application entry point.
+    *   `cmd/root.go`: Main Cobra CLI command definition.
+*   **Deployment & Environment:**
+    *   `Dockerfile`: Docker image definition.
+    *   `docker-compose.yml`, `Docker/docker-compose.yml`, `Podman/podman-compose.yml`: Docker and Podman compose files.
+    *   `Docker/ENVIRONMENT_VARIABLES.md`: Documentation for Docker environment variables.
+    *   `.devcontainer/devcontainer.json`: Development container setup.
+*   **Documentation & Wiki:**
+    *   `doc/wiki/*.md`: Various wiki articles (e.g., `installation.md`, `docker_compose_guide.md`).
+    *   `doc/*.md`: Other general documentation (e.g., `BUFFER_ALLOCATION_MONITORING.md`).
+*   **Data:**
+    *   `data/latest.json`: Contains latest data, likely taxonomy or model related.
+
+## 4. Dependencies
+
+*   **Go:** Managed by `go.mod` and `go.sum`. Key internal packages in `/internal/`.
+*   **Svelte 5:** Frontend framework, with dependencies managed by `frontend/package.json`.
+*   **Viper:** Used for CLI commands in `/cmd/`.
+*   **Testify:** Go testing framework used in conjunction with standard `go test`.
+*   **Docker/Podman:** For containerized deployment and development.
+*   **Task:** A task runner for automating build, linting, and testing processes.
+*   **ast-grep:** A structural code search and refactoring tool.
+
+## 5. Common Tasks
+
+*   **Linting:**
+    *   Go: `task lint`
+    *   Frontend: `npm run check:all` (run from `frontend/` directory)
+*   **Testing:**
+    *   Go: `go test -race -v ./...` (from root directory)
+    *   Frontend: `npm test` (run from `frontend/` directory)
+*   **Development Server:**
+    *   `task dev_server` (for hot reload)
+*   **Building:**
+    *   `task` (default build, auto-detects target)
+    *   `task frontend-build` (frontend only)
+    *   `task linux_amd64` (cross-platform builds)
+*   **Cleaning Artifacts:**
+    *   `task clean`
+*   **Code Search & Refactoring (using ast-grep):**
+    *   Search: `ast-grep --pattern "async function $$$($$$) { $$$ }" src/`
+    *   Refactor: `ast-grep --pattern "let $VAR = $VALUE" --rewrite "const $VAR = $VALUE" src/`
+*   **Git Workflow:**
+    *   Branching: `git pull origin main && git checkout -b feature-name`
+    *   Request automated PR review: `gh pr comment <PR_NUMBER> --body "/gemini review"`
+*   **Updating Taxonomy:**
+    *   `scripts/update_taxonomy.go` (requires Go execution)
+*   **Collecting Debug Data:**
+    *   `scripts/collect-debug-data.sh`
+    *   `scripts/collect-debug-data-docker.sh`
+*   **Pushover Notifications:**
+    *   `deploy/pushover_notify.sh`

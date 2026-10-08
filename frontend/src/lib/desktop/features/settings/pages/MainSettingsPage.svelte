@@ -721,10 +721,15 @@
       if (!maplibregl) {
         mapLibraryLoading = true;
         try {
-          const [maplibreModule] = await Promise.all([
+          const [maplibreModule, workerUrl] = await Promise.all([
             import('maplibre-gl'),
+            // maplibre-gl v6 is ESM-only and resolves its worker at runtime from
+            // import.meta.url, which Vite cannot follow. ?url makes Vite emit the
+            // worker into dist/ (embedded in the Go binary) and hands back its URL.
+            import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
             import('maplibre-gl/dist/maplibre-gl.css'),
           ]);
+          maplibreModule.setWorkerUrl(workerUrl.default);
           maplibregl = maplibreModule;
           mapLibraryLoading = false;
         } catch (importError) {
