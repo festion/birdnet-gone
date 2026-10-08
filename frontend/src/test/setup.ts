@@ -437,6 +437,7 @@ vi.mock('maplibre-gl', () => {
     // Named exports for compatibility with all import styles
     Map: MockMap,
     Marker: MockMarker,
+    setWorkerUrl: vi.fn(),
   };
 });
 
