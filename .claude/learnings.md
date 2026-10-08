@@ -183,3 +183,11 @@ process uptime          57m                      capture is live
 - @lucide/svelte 1.48 redefined `IconProps` (now requires `icon` or `iconNode`); type passed-in icons as `LucideIcon` (#243). stylelint 17.15's `at-rule-prelude-no-invalid` flags Tailwind `@apply`; exempt with `ignoreAtRules: ["apply"]` (#245).
 - Lint/test path filters named `.golangci.yml`; the file is `.golangci.yaml`, so a config-only change never triggered lint (#248).
 - Locally, `internal/datastore` (`TestNightFilterExcludesSunriseSunsetWindows`) and `internal/imageprovider` tests fail on CT 128 on unmodified main too; they pass in CI.
+
+### maplibre-gl v6 is ESM-only and finds its worker via import.meta.url — Vite never emits it, so the embedded settings map 404s its worker unless you setWorkerUrl() — 2026-10-07
+- **Context:** PR #255 bumped maplibre-gl 5.24 → ^6.11.2 (6.13.0) for critical alert #109. Typecheck, 1622 tests and the build were all green.
+- **Wrong:** v6 computes `./maplibre-gl-worker.mjs?v=<ver>` at runtime from `import.meta.url`, a dynamic string Vite cannot follow. The build emitted the maplibre JS and CSS but no worker. `frontend/embed.go` embeds `all:dist`, so the worker request would 404 and the map would not render. Every automated check passed, because none renders a map. A cross-model review caught it by reading `dist/`.
+- **Right:** load the worker URL with Vite's `?url` next to the dynamic import, and set it before the first `new Map`:
+  `const [m, workerUrl] = await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'), …]); m.setWorkerUrl(workerUrl.default);`
+  Check: `ls frontend/dist | grep worker` shows `maplibre-gl-worker-<hash>.mjs`, and the URL module resolves under Vite's `base` (`/ui/assets/`). `internal/api/static.go` already maps `.mjs` to JavaScript. Add `setWorkerUrl: vi.fn()` to the maplibre mock in `src/test/setup.ts`. v6 also requires WebGL2.
+- **Applies to:** any bundled library that spawns a worker from `import.meta.url`. "Build OK" doesn't prove every runtime-fetched asset is in `dist/` — list the emitted files.
