@@ -75,6 +75,7 @@ process uptime          57m                      capture is live
 - **Fix:** `sudo raspi-config nonint do_boot_behaviour B4` + reboot. The existing `~/.config/autostart/bird-display-kiosk.desktop` autostart handles launching Chromium with `http://localhost:5000`
 - **Key insight:** The original kiosk uses labwc (Wayland compositor) via Desktop session — switching to Console mode bypasses the desktop environment and its autostart `.desktop` files entirely
 - **Applies to:** BirdNET RPi kiosk display at 192.168.1.197
+- **Superseded 2026-10-12:** the kiosk now runs on the Pi 5 (`ssh birdnet-pi5`). Chromium opens `http://localhost:8080/ui/kiosk` from `~/.config/labwc/autostart`. There is no `~/.config/autostart` and no Flask display on :5000. See the panel-rotation entry below.
 
 ### MQTT discovery `this.state` fallback breaks HA measurement sensors — 2026-02-17
 - **Context:** HA logged `Value error while updating state` for all BirdNET confidence/sound_level sensors
@@ -191,3 +192,9 @@ process uptime          57m                      capture is live
   `const [m, workerUrl] = await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'), …]); m.setWorkerUrl(workerUrl.default);`
   Check: `ls frontend/dist | grep worker` shows `maplibre-gl-worker-<hash>.mjs`, and the URL module resolves under Vite's `base` (`/ui/assets/`). `internal/api/static.go` already maps `.mjs` to JavaScript. Add `setWorkerUrl: vi.fn()` to the maplibre mock in `src/test/setup.ts`. v6 also requires WebGL2.
 - **Applies to:** any bundled library that spawns a worker from `import.meta.url`. "Build OK" doesn't prove every runtime-fetched asset is in `dist/` — list the emitted files.
+
+### Pi 5 kiosk panel is mounted upside down — the 180° rotation must be set in kanshi, not only in the labwc autostart — 2026-10-12
+- **Context:** The kiosk panel (DZX Z3, 1024x600 HDMI touchscreen, labwc desktop on `birdnet-pi5`) was physically remounted rotated 180°.
+- **Wrong:** Setting the rotation only on the `wlr-randr` line in `~/.config/labwc/autostart`. That line runs once at login. `kanshi` was running with an EMPTY `~/.config/kanshi/config`, so nothing re-applies output settings when HDMI reconnects.
+- **Right:** `~/.config/kanshi/config` holds `profile { output HDMI-A-1 enable mode 1024x600@60.004 position 0,0 transform 180 }`, and the autostart `wlr-randr --output HDMI-A-1 --on --transform 180` line is the fallback. Proven: set `--transform normal` by hand, `pkill -HUP -x kanshi`, and `wlr-randr` reads `Transform: 180` again. Backups of both files: `*.bak-20261012`. Touch is tied to the output by `rc.xml` `mapToOutput="HDMI-A-1"`. Touch after rotation and survival across a reboot were not tested on 2026-10-12.
+- **Applies to:** any later display change on the BirdNET Pi 5 kiosk. Edit the kanshi profile first.
