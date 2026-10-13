@@ -5,6 +5,13 @@
 
 ---
 
+### AudioMoth USB Microphone firmware: configure it ONLY with the "AudioMoth USB Microphone App", and it is a microphone only on DEFAULT/CUSTOM — 2026-10-12
+- **Context:** the patio AudioMoth for birdnet-pi5 (#4579), streamed from audiomoth-pi (Pi 3B, 192.168.10.156) via mediamtx RTSP (homelab-iac `roles/audiomoth-streamer`).
+- **Wrong:** using the AudioMoth Configuration App. It rejects this firmware ("the firmware installed on your AudioMoth is not supported"). Also wrong: leaving the switch on USB/OFF and expecting a sound card. On USB/OFF the device is HID + vendor-specific only (`10c4:0002` before flashing, `16d0:06f3` after), with no USB Audio interface, so `arecord -l` lists nothing.
+- **Right:** flash with the AudioMoth Flash App. Save the rate and gain in the **AudioMoth USB Microphone App** (switch on USB/OFF). Record on **DEFAULT or CUSTOM**: both use the saved rate, and CUSTOM also applies the filters (openacousticdevices.info/usb-microphone). ALSA card id is `Microphone` ("48kHz AudioMoth USB Microphone"), S16_LE mono, exposing **exactly one rate**. Unconfigured, that rate is 384 kHz. Capture with `hw:CARD=Microphone,DEV=0` at exactly that rate, or the open fails.
+- **Measured:** 48 kHz saved, CUSTOM: a 5 s arecord read −42.5 dBFS RMS. birdnet-pi5 `ffprobe rtsp://192.168.10.156:8554/audiomoth` → `pcm_s16be`, 48000 Hz, 1 ch.
+- **Applies to:** any AudioMoth used as a live mic for BirdNET-Go.
+
 ### The RPi kernel 6.12.62 ALSA/malgo regression is RESOLVED and the apt hold is gone — keep the DETECTION RECIPE, because this failure is silent: sound levels keep flowing while capture is dead — 2026-09-02
 - **Rescued from `festion/birdnet-go`'s own `.claude/learnings.md`** (entry dated 2026-02-21) before that fork is deleted. It was the only record of the pin anywhere: `grep rpt-rpi-v8` over this file returned 0 and `memory-search` found nothing. The fork carried no other unique knowledge.
 - **The original finding (2026-02-21):** Raspberry Pi kernel `6.12.62+rpt-rpi-v8` had an ALSA regression that broke `malgo` (miniaudio) audio capture into the analysis pipeline. Mitigation was an apt hold pinning `6.12.47+rpt-rpi-v8`, holding `linux-image-rpi-v8` and `linux-image-6.12.47+rpt-rpi-v8`.
