@@ -93,7 +93,7 @@
     "@vitest/browser": "^4.1.11",
     "@vitest/browser-playwright": "^4.0.16",
     "@vitest/eslint-plugin": "^1.6.27",
-    "@vitest/ui": "^4.0.16",
+    "@vitest/ui": "^5.0.3",
     "axe-core": "^4.14.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
