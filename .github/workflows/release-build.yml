@@ -10,8 +10,24 @@ permissions:
   packages: write
 
 jobs:
+  # ops #3230: every job below skips on a ref containing "nightly" (nightly
+  # builds belong to nightly-build.yml). Without this job such a run would
+  # be GREEN with zero jobs executed, indistinguishable from "the release
+  # build silently did nothing". This makes the skip say so.
+  # (The old `event_name == release || workflow_dispatch` clause was dropped:
+  # those are this workflow's only triggers, so it could never be false.)
+  release-skipped:
+    if: ${{ contains(github.ref, 'nightly') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain the skip
+        run: |
+          msg="Release build intentionally SKIPPED: ref ${GITHUB_REF} contains 'nightly'. Nightly builds run from nightly-build.yml."
+          echo "::notice::${msg}"
+          echo "${msg}" >> "${GITHUB_STEP_SUMMARY}"
+
   build:
-    if: ${{ !contains(github.ref, 'nightly') && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !contains(github.ref, 'nightly') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -119,7 +135,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
   get-version:
-    if: ${{ !contains(github.ref, 'nightly') && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !contains(github.ref, 'nightly') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
@@ -137,7 +153,7 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
   docker:
-    if: ${{ !contains(github.ref, 'nightly') && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !contains(github.ref, 'nightly') }}
     needs: get-version
     uses: ./.github/workflows/docker-build-push.yml
     with:
